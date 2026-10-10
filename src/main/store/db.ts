@@ -1,0 +1,188 @@
+// 会话 / 消息 / 资产元数据 / 需求规格 的 JSON 持久化存储
+// 数据量小(元数据级),写穿 + 临时文件原子替换,无需 SQLite
+
+import { app } from 'electron'
+import fs from 'node:fs'
+import path from 'node:path'
+import { randomUUID } from 'node:crypto'
+import type { ChatMessage, ImageAsset, ImageBrief, SessionSummary } from '@shared/types'
+
+interface DBShape {
+  sessions: SessionSummary[]
+  messages: ChatMessage[]
+  assets: ImageAsset[]
+  briefs: Record<string, ImageBrief>
+}
+
+function emptyShape(): DBShape {
+  return { sessions: [], messages: [], assets: [], briefs: {} }
+}
+
+class DB {
+  private file = ''
+  private data: DBShape = emptyShape()
+
+  init(): void {
+    this.file = path.join(app.getPath('userData'), 'app-data.json')
+    try {
+      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<DBShape>
+      this.data = { ...emptyShape(), ...raw }
+    } catch {
+      this.data = emptyShape()
+    }
+  }
+
+  private save(): void {
+    const tmp = `${this.file}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8')
+    fs.renameSync(tmp, this.file)
+  }
+
+  // ---------- 会话 ----------
+
+  listSessions(): SessionSummary[] {
+    return [...this.data.sessions].sort((a, b) => b.updatedAt - a.updatedAt)
+  }
+
+  getSession(id: string): SessionSummary | undefined {
+    return this.data.sessions.find((s) => s.id === id)
+  }
+
+  createSession(title = '新会话'): SessionSummary {
+    const now = Date.now()
+    const s: SessionSummary = {
+      id: randomUUID(),
+      title,
+      createdAt: now,
+      updatedAt: now,
+      messageCount: 0
+    }
+    this.data.sessions.push(s)
+    this.save()
+    return s
+  }
+
+  renameSession(id: string, title: string): void {
+    const s = this.getSession(id)
+    if (!s) return
+    s.title = title.trim() || s.title
+    s.updatedAt = Date.now()
+    this.save()
+  }
+
+  setProjectPath(id: string, projectPath: string | undefined): void {
+    const s = this.getSession(id)
+    if (!s) return
+    s.projectPath = projectPath
+    s.updatedAt = Date.now()
+    this.save()
+  }
+
+  touchSession(id: string): void {
+    const s = this.getSession(id)
+    if (s) {
+      s.updatedAt = Date.now()
+      this.save()
+    }
+  }
+
+  deleteSession(id: string): string[] {
+    // 返回待删除的资产文件相对路径,由 assets 模块负责删文件
+    const removed: string[] = []
+    this.data.assets = this.data.assets.filter((a) => {
+      if (a.sessionId === id) {
+        removed.push(a.fileName)
+        return false
+      }
+      return true
+    })
+    this.data.messages = this.data.messages.filter((m) => m.sessionId !== id)
+    delete this.data.briefs[id]
+    this.data.sessions = this.data.sessions.filter((s) => s.id !== id)
+    this.save()
+    return removed
+  }
+
+  // ---------- 消息 ----------
+
+  messages(sessionId: string): ChatMessage[] {
+    return this.data.messages
+      .filter((m) => m.sessionId === sessionId)
+      .sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  addMessage(message: ChatMessage): void {
+    this.data.messages.push(message)
+    const s = this.getSession(message.sessionId)
+    if (s) {
+      s.messageCount = this.data.messages.filter((m) => m.sessionId === message.sessionId).length
+      s.updatedAt = Date.now()
+      // 首条用户消息自动命名
+      if (message.role === 'user' && s.title === '新会话' && message.text.trim()) {
+        s.title = message.text.trim().slice(0, 18)
+      }
+    }
+    this.save()
+  }
+
+  // ---------- 资产 ----------
+
+  addAsset(asset: ImageAsset): ImageAsset {
+    this.data.assets.push(asset)
+    const s = this.getSession(asset.sessionId)
+    if (s && !s.coverAssetId && asset.kind !== 'mask') {
+      s.coverAssetId = asset.id
+    }
+    this.save()
+    return asset
+  }
+
+  asset(id: string): ImageAsset | undefined {
+    return this.data.assets.find((a) => a.id === id)
+  }
+
+  assets(sessionId: string): ImageAsset[] {
+    return this.data.assets
+      .filter((a) => a.sessionId === sessionId)
+      .sort((a, b) => a.createdAt - b.createdAt)
+  }
+
+  // ---------- 需求规格 ----------
+
+  brief(sessionId: string): ImageBrief {
+    return this.data.briefs[sessionId] ?? {}
+  }
+
+  /** 合并槽位并落盘;confirmedAt 只能由确认动作设置;确认后槽位变化会自动失效(需重新确认) */
+  patchBrief(sessionId: string, patch: ImageBrief, markConfirmed = false): ImageBrief {
+    const prev = this.brief(sessionId)
+    const next: ImageBrief = { ...prev }
+    let changed = false
+    for (const [k, v] of Object.entries(patch)) {
+      const key = k as keyof ImageBrief
+      if (key === 'confirmedAt') continue
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        if ((prev as Record<string, unknown>)[key] !== v) changed = true
+        ;(next as Record<string, unknown>)[key] = v
+      }
+    }
+    if (markConfirmed && !next.confirmedAt) {
+      next.confirmedAt = Date.now()
+    } else if (changed && next.confirmedAt) {
+      next.confirmedAt = undefined // 需求变化 → 回到未确认,强制重新确认
+    }
+    this.data.briefs[sessionId] = next
+    this.save()
+    return next
+  }
+}
+
+let instance: DB | null = null
+
+export function getDb(): DB {
+  if (!instance) {
+    instance = new DB()
+    instance.init()
+  }
+  return instance
+}

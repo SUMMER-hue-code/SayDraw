@@ -1,0 +1,72 @@
+// preload 桥:向渲染进程暴露类型化 API(基于 contextBridge,渲染进程无 Node 能力)
+
+import { contextBridge, ipcRenderer } from 'electron'
+import { IPC } from '@shared/ipc'
+import type {
+  AgentEvent,
+  AppSettings,
+  ImageAsset,
+  ModelInfo,
+  SessionData,
+  SessionSummary,
+  TestResult
+} from '@shared/types'
+
+const api = {
+  /** 订阅 Agent 事件流,返回取消订阅函数 */
+  onAgentEvent(callback: (event: AgentEvent) => void): () => void {
+    const listener = (_e: Electron.IpcRendererEvent, event: AgentEvent): void => callback(event)
+    ipcRenderer.on(IPC.EVENT, listener)
+    return () => ipcRenderer.removeListener(IPC.EVENT, listener)
+  },
+
+  sessions: {
+    list: (): Promise<SessionSummary[]> => ipcRenderer.invoke(IPC.SESSIONS_LIST),
+    create: (title?: string): Promise<SessionSummary> => ipcRenderer.invoke(IPC.SESSIONS_CREATE, title),
+    rename: (id: string, title: string): Promise<boolean> => ipcRenderer.invoke(IPC.SESSIONS_RENAME, id, title),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke(IPC.SESSIONS_REMOVE, id),
+    /** 选择项目文件夹(主进程弹窗),自动初始化 要求.md / 需求规格.md;取消返回 null */
+    selectProject: (sessionId: string): Promise<{ path: string; createdFiles: string[] } | null> =>
+      ipcRenderer.invoke(IPC.SESSIONS_SELECT_PROJECT, sessionId)
+  },
+
+  chat: {
+    history: (sessionId: string): Promise<SessionData> => ipcRenderer.invoke(IPC.CHAT_HISTORY, sessionId),
+    send: (
+      sessionId: string,
+      text: string,
+      assetIds?: string[],
+      confirmBrief?: boolean,
+      fileTexts?: { name: string; content: string }[]
+    ): Promise<boolean> => ipcRenderer.invoke(IPC.CHAT_SEND, sessionId, text, assetIds, confirmBrief, fileTexts),
+    cancel: (sessionId: string): Promise<boolean> => ipcRenderer.invoke(IPC.CHAT_CANCEL, sessionId),
+    /** 在问答面板作答 ask_user */
+    answerQuestion: (sessionId: string, questionId: string, answer: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.CHAT_ANSWER_QUESTION, sessionId, questionId, answer)
+  },
+
+  assets: {
+    /** dataUrl 上传(image/*;base64),kind: user-upload | mask */
+    upload: (sessionId: string, dataUrl: string, kind: ImageAsset['kind'], baseAssetId?: string): Promise<ImageAsset> =>
+      ipcRenderer.invoke(IPC.ASSETS_UPLOAD, sessionId, dataUrl, kind, baseAssetId),
+    /** 弹出图片右键菜单(复制/另存为) */
+    contextMenu: (assetId: string): Promise<boolean> => ipcRenderer.invoke(IPC.ASSETS_CONTEXT_MENU, assetId)
+  },
+
+  settings: {
+    get: (): Promise<AppSettings> => ipcRenderer.invoke(IPC.SETTINGS_GET),
+    save: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke(IPC.SETTINGS_SAVE, settings),
+    setActive: (kind: 'chat' | 'image', profileId: string | undefined): Promise<AppSettings> =>
+      ipcRenderer.invoke(IPC.SETTINGS_SET_ACTIVE, kind, profileId),
+    listModels: (baseUrl: string, apiKey: string, apiFormat?: 'openai' | 'anthropic'): Promise<ModelInfo[]> =>
+      ipcRenderer.invoke(IPC.SETTINGS_LIST_MODELS, baseUrl, apiKey, apiFormat),
+    testChat: (profile: { baseUrl: string; apiKey: string; model: string; apiFormat?: 'openai' | 'anthropic' }): Promise<TestResult> =>
+      ipcRenderer.invoke(IPC.SETTINGS_TEST_CHAT, profile),
+    testImage: (profile: { baseUrl: string; apiKey: string; model: string; genPath?: string }): Promise<TestResult> =>
+      ipcRenderer.invoke(IPC.SETTINGS_TEST_IMAGE, profile)
+  }
+}
+
+export type Api = typeof api
+
+contextBridge.exposeInMainWorld('api', api)

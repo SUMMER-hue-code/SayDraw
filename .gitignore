@@ -1,0 +1,8 @@
+node_modules/
+out/
+dist-release/
+*.local
+.DS_Store
+
+# local
+.zcode/
