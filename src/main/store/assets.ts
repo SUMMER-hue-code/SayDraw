@@ -81,6 +81,7 @@ function persistBuffer(opts: {
   parentId?: string
   baseAssetId?: string
   prompt?: string
+  label?: string
 }): ImageAsset {
   const { sessionId, buffer, mime } = opts
   const dir = sessionAssetsDir(sessionId)
@@ -96,6 +97,7 @@ function persistBuffer(opts: {
     kind: opts.kind,
     parentId: opts.parentId,
     baseAssetId: opts.baseAssetId,
+    label: opts.label,
     fileName,
     mime,
     width,
@@ -112,6 +114,7 @@ export function saveDataUrlAsset(opts: {
   kind: AssetKind
   parentId?: string
   baseAssetId?: string
+  label?: string
 }): ImageAsset {
   const match = /^data:(image\/[a-z+]+);base64,(.+)$/i.exec(opts.dataUrl)
   if (!match) throw new Error('无法解析图片数据(data URL 格式不正确)')

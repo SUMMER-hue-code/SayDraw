@@ -161,6 +161,8 @@ export default function Composer() {
   const clearAttachments = useComposerStore((s) => s.clear)
 
   const maskDataUrl = useCanvasStore((s) => s.maskDataUrl)
+  const overlayDataUrl = useCanvasStore((s) => s.overlayDataUrl)
+  const maskStrokes = useCanvasStore((s) => s.strokes)
   const maskBaseAssetId = useCanvasStore((s) => s.maskBaseAssetId)
   const clearMask = useCanvasStore((s) => s.clearMask)
 
@@ -241,8 +243,15 @@ export default function Composer() {
         assetIds.push(asset.id)
       }
       if (hasMask) {
-        const maskAsset = await window.api.assets.upload(sessionId, maskDataUrl!, 'mask', maskBaseAssetId!)
-        assetIds.push(maskBaseAssetId!, maskAsset.id)
+        // 双蒙版:二值蒙版给 edits 接口,彩色编号标注图给模型理解(看得到每处修改的位置)
+        const binaryAsset = await window.api.assets.upload(sessionId, maskDataUrl!, 'mask', maskBaseAssetId!, 'binary')
+        assetIds.push(maskBaseAssetId!)
+        if (overlayDataUrl) {
+          const overlayAsset = await window.api.assets.upload(sessionId, overlayDataUrl, 'mask', maskBaseAssetId!, 'overlay')
+          assetIds.push(binaryAsset.id, overlayAsset.id)
+        } else {
+          assetIds.push(binaryAsset.id)
+        }
         clearMask()
       }
     } catch (err) {
@@ -287,9 +296,10 @@ export default function Composer() {
                 <button
                   className="flex h-12 items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 text-[11px] text-amber-300"
                   onClick={clearMask}
-                  title="点击移除蒙版"
+                  title="点击移除蒙版;多编号时发送消息需说明每个编号要改成什么"
                 >
-                  🖌 含局部蒙版 <span className="text-amber-500/70">(移除)</span>
+                  🖌 蒙版{maskStrokes.length ? ` · ${new Set(maskStrokes.map((s) => s.brushId)).size} 处编号` : ''}
+                  <span className="text-amber-500/70">(移除)</span>
                 </button>
               )}
             </div>

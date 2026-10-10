@@ -9,7 +9,7 @@ import { BRIEF_SLOTS } from '@shared/types'
 import { getDb } from '../store/db'
 import { getSettings } from '../store/settings'
 import { readAssetBuffer, saveBufferAsset } from '../store/assets'
-import { editImage, generateImages, guessMime } from '../providers/images'
+import { editImage, generateImages, guessMime, parseExplicitSize } from '../providers/images'
 import type { LLMTool } from '../providers/chat'
 import { errText } from '../providers/http'
 
@@ -28,6 +28,7 @@ export const TOOL_DEFS: LLMTool[] = [
           composition: { type: 'string', description: '构图:视角、景别、布局' },
           colorTone: { type: 'string', description: '色调氛围' },
           aspectRatio: { type: 'string', description: '画面比例,取值:1:1 | 16:9 | 9:16 | 4:3 | 3:4' },
+          resolution: { type: 'string', description: '输出分辨率 WxH,如 1024x1024 / 2048x2048 / 3840x2160(生成前必须明确;结合用途建议:头像/图标 1024、社交配图 2048、壁纸 3840)' },
           usage: { type: 'string', description: '用途:头像/海报/壁纸…' },
           negativePrompts: { type: 'string', description: '要避免的元素' },
           notes: { type: 'string', description: '其他补充说明' },
@@ -47,6 +48,7 @@ export const TOOL_DEFS: LLMTool[] = [
         properties: {
           prompt: { type: 'string', description: '完整的图像生成提示词;带参考图时应说明各参考图元素如何安排' },
           aspectRatio: { type: 'string', description: '画面比例,默认取需求规格中的值' },
+          size: { type: 'string', description: '输出分辨率 WxH(如 2048x2048 / 3840x2160),优先于比例;生图前分辨率必须明确' },
           n: { type: 'number', description: '生成张数 1-4,默认 1' },
           referenceAssetIds: {
             type: 'array',
@@ -74,7 +76,8 @@ export const TOOL_DEFS: LLMTool[] = [
           },
           instruction: { type: 'string', description: '编辑指令:完整描述修改/融合后的画面效果' },
           maskAssetId: { type: 'string', description: '蒙版图片 ID(用户涂抹的区域),仅单源图时可选' },
-          aspectRatio: { type: 'string', description: '输出比例,默认与源图一致' }
+          aspectRatio: { type: 'string', description: '输出比例,默认与源图一致' },
+          size: { type: 'string', description: '输出分辨率 WxH(如 2048x2048),可选;默认跟随需求规格或源图' }
         },
         required: ['assetIds', 'instruction']
       }
@@ -288,6 +291,11 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
   const db = getDb()
   const brief = db.brief(ctx.sessionId)
   const ratio = (args.aspectRatio ? String(args.aspectRatio) : brief.aspectRatio) || undefined
+  // 分辨率:显式 size 优先,其次需求规格 resolution,最后按比例映射
+  const size = parseExplicitSize(String(args.size ?? '')) ?? parseExplicitSize(brief.resolution ?? '')
+  if (args.size && !parseExplicitSize(String(args.size))) {
+    return { ok: false, text: `参数错误:size 格式应为 WxH(如 2048x2048),收到 "${String(args.size)}"。`, assetIds: [] }
+  }
   // 部分服务单次仅支持 1 张(如 gpt-image-2),按配置上限钳制
   const maxN = profile.maxN && profile.maxN > 0 ? profile.maxN : 4
   const n = Math.min(maxN, Math.max(1, Number(args.n ?? 1) || 1))
@@ -316,6 +324,7 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
       prompt,
       images: references.map((a) => ({ buffer: readAssetBuffer(a), mime: a.mime })),
       ratio,
+      size: size ?? undefined,
       timeoutMs: getSettings().load().imageTimeoutMs,
       signal: ctx.signal
     })
@@ -324,6 +333,7 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
       profile,
       prompt,
       ratio,
+      size: size ?? undefined,
       n,
       timeoutMs: getSettings().load().imageTimeoutMs,
       signal: ctx.signal
@@ -342,7 +352,7 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
     assetIds.push(asset.id)
     ctx.emit({ type: 'asset-added', sessionId: ctx.sessionId, asset })
   }
-  const refNote = references.length > 0 ? `已融合 ${references.length} 张参考图` : `比例 ${ratio ?? '1:1'}`
+  const refNote = references.length > 0 ? `已融合 ${references.length} 张参考图` : `分辨率 ${size ?? ratio ?? '1:1 默认'}`
   const nNote = n > 1 ? `${assetIds.length} 张` : '1 张'
   return { ok: true, text: `已生成 ${nNote}图片:${assetIds.join(', ')}(${refNote})。请向用户展示并说明。`, assetIds }
 }
@@ -393,6 +403,7 @@ export async function execEditImage(ctx: ToolCtx, args: Record<string, unknown>)
     images: sources.map((a) => ({ buffer: readAssetBuffer(a), mime: a.mime })),
     mask,
     ratio: args.aspectRatio ? String(args.aspectRatio) : undefined,
+    size: parseExplicitSize(String(args.size ?? '')) ?? undefined,
     timeoutMs: getSettings().load().imageTimeoutMs,
     signal: ctx.signal
   })

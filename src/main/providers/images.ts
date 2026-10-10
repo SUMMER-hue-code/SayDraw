@@ -17,6 +17,14 @@ export function ratioToSize(ratio?: string): string | undefined {
   return RATIO_SIZE[ratio.trim()]
 }
 
+/** 显式分辨率校验:WxH(如 2048x2048);非法返回 null */
+export function parseExplicitSize(size?: string): string | null {
+  if (!size) return null
+  const m = /^(\d{2,5})\s*[x×]\s*(\d{2,5})$/i.exec(size.trim())
+  if (!m) return null
+  return `${m[1]}x${m[2]}`
+}
+
 interface RawImage {
   b64_json?: string
   url?: string
@@ -77,26 +85,26 @@ async function postImages(url: string, apiKey: string, body: Record<string, unkn
   return (await res.json()) as { data?: RawImage[] }
 }
 
-/** 文生图;size 被拒绝(HTTP 400 且报文含 size)时自动去掉 size 重试一次 */
+/** 文生图;size 显式优先,其次比例映射;size 被拒绝(HTTP 400 且报文含 size)时自动降级 */
 export async function generateImages(opts: {
   profile: ImageProfile
   prompt: string
   ratio?: string
+  size?: string
   n: number
   timeoutMs: number
   signal?: AbortSignal
 }): Promise<Buffer[]> {
-  const { profile, prompt, ratio, n, timeoutMs, signal } = opts
+  const { profile, prompt, ratio, size, n, timeoutMs, signal } = opts
   if (!profile.baseUrl || !profile.model) throw new ApiError('生图服务配置不完整(缺 baseUrl 或模型名)')
   if (!profile.apiKey) throw new ApiError('生图服务未配置 API Key')
 
   const url = joinUrl(profile.baseUrl, profile.genPath || '/images/generations')
-  const size = ratioToSize(ratio)
+  const explicit = parseExplicitSize(size) ?? ratioToSize(ratio)
 
   return withParamFallback(async (withOptional) => {
     const body: Record<string, unknown> = { model: profile.model, prompt, n }
-    // 可选参数仅在配置时发送(避免严格端点拒绝未知字段);被拒绝时自动降级
-    if (withOptional && size) body.size = size
+    if (withOptional && explicit) body.size = explicit
     if (withOptional && profile.quality) body.quality = profile.quality
     if (withOptional && profile.outputFormat) body.output_format = profile.outputFormat
 
@@ -113,16 +121,17 @@ export async function editImage(opts: {
   images: { buffer: Buffer; mime: string }[]
   mask?: Buffer
   ratio?: string
+  size?: string
   timeoutMs: number
   signal?: AbortSignal
 }): Promise<Buffer[]> {
-  const { profile, prompt, images, mask, ratio, timeoutMs, signal } = opts
+  const { profile, prompt, images, mask, ratio, size, timeoutMs, signal } = opts
   if (!profile.baseUrl || !profile.model) throw new ApiError('生图服务配置不完整(缺 baseUrl 或模型名)')
   if (!profile.apiKey) throw new ApiError('生图服务未配置 API Key')
   if (!images.length) throw new ApiError('缺少输入图片')
 
   const url = joinUrl(profile.baseUrl, profile.editPath || '/images/edits')
-  const size = ratioToSize(ratio)
+  const explicit = parseExplicitSize(size) ?? ratioToSize(ratio)
 
   return withParamFallback(async (withOptional) => {
     const form = new FormData()
@@ -142,7 +151,7 @@ export async function editImage(opts: {
         form.append('image[]', blob, `image.${ext}`)
       }
     }
-    if (withOptional && size) form.append('size', size)
+    if (withOptional && explicit) form.append('size', explicit)
     if (withOptional && profile.quality) form.append('quality', profile.quality)
     if (withOptional && profile.outputFormat) form.append('output_format', profile.outputFormat)
     if (withOptional && profile.inputFidelity) form.append('input_fidelity', profile.inputFidelity)

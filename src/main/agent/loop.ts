@@ -10,8 +10,9 @@ import { assetToDataUrl } from '../store/assets'
 import { syncSpecFile } from '../store/projects'
 import { streamChatCompletion, type ContentPart, type LLMMessage, type LLMToolCall } from '../providers/chat'
 import { errText } from '../providers/http'
+import { parseExplicitSize } from '../providers/images'
 import { cancelSessionQuestions } from './askUser'
-import { buildSystemMessage } from './systemPrompt'
+import { SYSTEM_PROMPT, buildStateBlock } from './systemPrompt'
 import { TOOL_DEFS, executeTool, type ToolCtx } from './tools'
 
 const activeRuns = new Map<string, AbortController>()
@@ -71,18 +72,30 @@ function buildAssetParts(assets: ImageAsset[], visionEnabled: boolean): ContentP
   const notes: string[] = []
   for (const asset of assets) {
     if (asset.kind === 'mask') {
-      notes.push(`[图片 ${asset.id}(蒙版,作用于 ${asset.baseAssetId ?? '上一张图'}:涂抹区域为用户想修改的部分)]`)
+      if (asset.label === 'overlay') {
+        notes.push(
+          `[图片 ${asset.id}(蒙版标注图,作用于 ${asset.baseAssetId ?? '上一张图'}:彩色编号 1/2/3… 标出各处修改位置——编号 n 的颜色区域即第 n 处修改,结合用户消息中的编号说明理解)`
+        )
+      } else {
+        notes.push(`[图片 ${asset.id}(接口蒙版,作用于 ${asset.baseAssetId ?? '上一张图'}:透明区域=待修改;调用 edit_image 时 maskAssetId 应传此图 ID)]`)
+      }
+      if (visionEnabled) {
+        parts.push({ type: 'image_url', image_url: { url: assetToDataUrl(asset) } })
+      }
     } else {
       notes.push(`[图片 ${asset.id}(${KIND_LABEL[asset.kind] ?? asset.kind})]`)
-    }
-    if (visionEnabled) {
-      parts.push({ type: 'image_url', image_url: { url: assetToDataUrl(asset) } })
+      if (visionEnabled) {
+        parts.push({ type: 'image_url', image_url: { url: assetToDataUrl(asset) } })
+      }
     }
   }
   return [{ type: 'text', text: notes.join('\n') }, ...parts.filter((p) => p.type === 'image_url')]
 }
 
-/** 把会话历史映射为 LLM 消息,并在尾部附上会话最近图片(连续修图的关键:模型始终看得到最新画面) */
+/** 把会话历史映射为 LLM 消息(缓存友好结构):
+ * ① system 为静态文本(前缀缓存命中的前提)
+ * ② 历史按序只读渲染,不随轮次变化
+ * ③ 动态内容(需求规格状态/工作目录/最近图片)合并进最后一条 user 消息——尾部变化不破坏前缀 */
 function buildContext(sessionId: string, brief: ImageBrief): LLMMessage[] {
   const db = getDb()
   const settings = getSettings().load()
@@ -99,9 +112,7 @@ function buildContext(sessionId: string, brief: ImageBrief): LLMMessage[] {
   const budget = new Set(referenced.slice(-settings.maxHistoryImages))
   const attached = new Set<string>()
 
-  const messages: LLMMessage[] = [
-    { role: 'system', content: buildSystemMessage(brief, session?.projectPath) }
-  ]
+  const messages: LLMMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
   for (const m of history) {
     if (m.role === 'user') {
@@ -134,22 +145,43 @@ function buildContext(sessionId: string, brief: ImageBrief): LLMMessage[] {
         .filter((a) => a.kind !== 'mask' && !attached.has(a.id))
         .slice(-Math.min(3, settings.maxHistoryImages))
     : []
+
+  // 动态状态块:合并进最后一条 user 消息(轮次间唯一变化的部分)
+  let stateText = buildStateBlock(brief, session?.projectPath)
   if (visionImages.length) {
     const parts = buildAssetParts(visionImages, true)
     const note = parts[0].type === 'text' ? parts[0].text : ''
-    messages.push({
-      role: 'user',
-      content: [
-        { type: 'text', text: `【图片上下文】当前会话最近的图片(最新在后),供你了解当前画面状态:\n${note}` },
-        ...parts.filter((p) => p.type === 'image_url')
+    stateText += `\n\n【图片上下文】当前会话最近的图片(最新在后),供你了解当前画面状态:\n${note}`
+    const last = messages[messages.length - 1]
+    const imageParts = parts.filter((p) => p.type === 'image_url')
+    if (last && last.role === 'user' && Array.isArray(last.content)) {
+      last.content = [...last.content, { type: 'text', text: stateText }, ...imageParts]
+    } else if (last && last.role === 'user') {
+      last.content = [
+        { type: 'text', text: `${last.content}\n\n${stateText}` },
+        ...imageParts
       ]
-    })
+    } else {
+      messages.push({ role: 'user', content: [{ type: 'text', text: stateText }, ...imageParts] })
+    }
+  } else {
+    const last = messages[messages.length - 1]
+    if (last && last.role === 'user') {
+      const text = typeof last.content === 'string' ? `${last.content}\n\n${stateText}` : null
+      if (text !== null) last.content = text
+      else if (Array.isArray(last.content)) last.content = [...last.content, { type: 'text', text: stateText }]
+    } else {
+      messages.push({ role: 'user', content: stateText })
+    }
   }
 
   const contextWindow = chatProfile?.contextWindow || 65536
   const maxOutputTokens = chatProfile?.maxOutputTokens || 8192
   return trimByContextWindow(messages, contextWindow, maxOutputTokens)
 }
+
+/** 可并行执行的独立工具(只读/无顺序依赖);生图/编辑/填槽/提问等保持串行 */
+const PARALLEL_SAFE = new Set(['list_directory', 'read_file', 'import_image', 'write_file', 'edit_file', 'move_file', 'copy_file'])
 
 function toLlmToolCall(call: { id: string; name: string; args: Record<string, unknown> }): LLMToolCall {
   return {
@@ -167,13 +199,20 @@ export interface RunOptions {
   confirmBrief?: boolean
 }
 
-/** 确认门:①未确认需求禁止文生图 ②本轮已生成过图片时,继续 generate/edit 需先经 ask_user 征得用户同意 */
-function gateCheck(toolName: string, brief: ImageBrief, imageOps: number, askApproval: boolean): string | null {
+/** 确认门:①未确认需求禁止文生图 ②分辨率未明确禁止生成 ③本轮已生成过图片时继续调整需先经 ask_user 同意 */
+function gateCheck(toolName: string, brief: ImageBrief, args: Record<string, unknown>, imageOps: number, askApproval: boolean): string | null {
   if (toolName === 'generate_image' && !brief.confirmedAt) {
     return (
       'REJECTED:需求规格尚未经用户确认,禁止生成。' +
       '请立即:1) 向用户分条复述完整需求摘要;2) 调用 ask_user 询问"确认无误,开始生成吗?"(选项如 确认生成/需要调整,推荐前者);' +
       '3) 用户确认后调用 update_brief(confirmed=true),再调用 generate_image。'
+    )
+  }
+  if (toolName === 'generate_image' && !brief.resolution && !parseExplicitSize(String(args.size ?? ''))) {
+    return (
+      'REJECTED:输出分辨率未明确,禁止生成。' +
+      '请先确定分辨率并结合用途给用户建议(头像/图标 1024x1024、社交配图/海报 2048x2048 或 2048x1152、壁纸/大图 3840x2160),\n' +
+      "通过 update_brief(resolution='WxH') 记录进需求规格(或本次调用直接传 size='WxH'),然后重新调用 generate_image。"
     )
   }
   if ((toolName === 'generate_image' || toolName === 'edit_image') && imageOps >= 1 && !askApproval) {
@@ -329,8 +368,44 @@ export async function runAgentTurn(sessionId: string, opts: RunOptions, emit: (e
       }
 
       const batchAssetIds: string[] = []
-      for (const call of result.toolCalls) {
+      for (let ci = 0; ci < result.toolCalls.length; ) {
         if (abort.signal.aborted) break
+        const call = result.toolCalls[ci]
+
+        if (PARALLEL_SAFE.has(call.name)) {
+          // 连续的独立工具并行执行(减少轮询等待)
+          let cj = ci
+          const batch: typeof result.toolCalls = []
+          while (cj < result.toolCalls.length && PARALLEL_SAFE.has(result.toolCalls[cj].name)) {
+            batch.push(result.toolCalls[cj])
+            cj++
+          }
+          const records: ToolCallRecord[] = batch.map((b) => ({ id: b.id, name: b.name, args: b.args, status: 'running', startedAt: Date.now() }))
+          for (const record of records) {
+            collector.pushTool(record)
+            toolRecords.push(record)
+            emit({ type: 'tool-status', sessionId, call: record })
+          }
+          const ctx: ToolCtx = { sessionId, signal: abort.signal, emit }
+          // eslint-disable-next-line no-await-in-loop
+          const rets = await Promise.all(batch.map((b) => executeTool(ctx, b.name, b.args)))
+          rets.forEach((ret, k) => {
+            const record = records[k]
+            record.status = ret.ok ? 'ok' : 'error'
+            record.resultSummary = ret.text.slice(0, 200)
+            record.resultFull = ret.text.slice(0, 2000)
+            record.assetIds = ret.assetIds
+            record.error = ret.ok ? undefined : ret.text
+            record.durationMs = Date.now() - (record.startedAt ?? Date.now())
+            runAssetIds.push(...ret.assetIds)
+            batchAssetIds.push(...ret.assetIds)
+            emit({ type: 'tool-status', sessionId, call: record })
+            llmMessages.push({ role: 'tool', tool_call_id: record.id, content: ret.text })
+          })
+          ci = cj
+          continue
+        }
+
         const record: ToolCallRecord = {
           id: call.id,
           name: call.name,
@@ -342,7 +417,7 @@ export async function runAgentTurn(sessionId: string, opts: RunOptions, emit: (e
         toolRecords.push(record)
         emit({ type: 'tool-status', sessionId, call: record })
 
-        const rejection = gateCheck(call.name, brief, imageOps, askApproval)
+        const rejection = gateCheck(call.name, brief, call.args, imageOps, askApproval)
         let resultText: string
         if (rejection) {
           record.status = 'rejected'
@@ -384,6 +459,7 @@ export async function runAgentTurn(sessionId: string, opts: RunOptions, emit: (e
           tool_call_id: call.id,
           content: resultText
         })
+        ci += 1
       }
 
       // 工具产出的图片回注上下文,让模型亲眼看到结果再决定下一步

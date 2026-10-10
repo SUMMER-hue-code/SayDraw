@@ -12,10 +12,10 @@ interface ToolUseAcc {
 }
 
 type Block =
-  | { type: 'text'; text: string }
+  | { type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-  | { type: 'tool_result'; tool_use_id: string; content: string }
+  | { type: 'tool_result'; tool_use_id: string; content: string; cache_control?: { type: 'ephemeral' } }
 
 interface ConvMessage {
   role: 'user' | 'assistant'
@@ -110,7 +110,16 @@ export async function anthropicChatStream(opts: {
     messages: conv,
     stream: true
   }
-  if (system) body.system = system
+  if (system) {
+    // 显式缓存断点①:system(静态,跨请求全量命中)
+    body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+  }
+  // 显式缓存断点②:倒数第二条消息的末块(滚动断点,下一轮此前缀不变即命中缓存,写 1.25x / 读 0.1x)
+  const rolling = conv[conv.length - 2]
+  if (rolling?.content?.length) {
+    const lastBlock = rolling.content[rolling.content.length - 1] as { cache_control?: unknown }
+    lastBlock.cache_control = { type: 'ephemeral' }
+  }
   // 思考模式映射:Anthropic 用 thinking.budget_tokens;推理强度档位无对应,忽略
   if (profile.thinkingMode === 'enabled') {
     body.thinking = { type: 'enabled', budget_tokens: Math.min(16_000, Math.max(1024, maxTokens - 2048)) }

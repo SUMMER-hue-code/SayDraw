@@ -28,8 +28,11 @@ function readBody(req) {
 
 function decideOpenAi(body) {
   const msgs = body.messages ?? []
-  const sys = typeof msgs[0]?.content === 'string' ? msgs[0].content : ''
-  const confirmed = sys.includes('已确认(用户已同意按此规格生成)')
+  // 状态块已移至尾部 user 消息(system 为静态),全局检测确认状态
+  const joined = msgs
+    .map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))
+    .join('\n')
+  const confirmed = joined.includes('已确认(用户已同意按此规格生成)')
   const toolMsgs = msgs.filter((m) => m.role === 'tool')
   const lastTool = toolMsgs.length ? String(toolMsgs[toolMsgs.length - 1].content) : ''
 

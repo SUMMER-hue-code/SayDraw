@@ -46,9 +46,9 @@ const api = {
   },
 
   assets: {
-    /** dataUrl 上传(image/*;base64),kind: user-upload | mask */
-    upload: (sessionId: string, dataUrl: string, kind: ImageAsset['kind'], baseAssetId?: string): Promise<ImageAsset> =>
-      ipcRenderer.invoke(IPC.ASSETS_UPLOAD, sessionId, dataUrl, kind, baseAssetId),
+    /** dataUrl 上传(image/*;base64),kind: user-upload | mask;label 用于区分蒙版类型 */
+    upload: (sessionId: string, dataUrl: string, kind: ImageAsset['kind'], baseAssetId?: string, label?: string): Promise<ImageAsset> =>
+      ipcRenderer.invoke(IPC.ASSETS_UPLOAD, sessionId, dataUrl, kind, baseAssetId, label),
     /** 弹出图片右键菜单(复制/另存为) */
     contextMenu: (assetId: string): Promise<boolean> => ipcRenderer.invoke(IPC.ASSETS_CONTEXT_MENU, assetId)
   },

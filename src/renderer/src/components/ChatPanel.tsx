@@ -9,6 +9,7 @@ import { fmtDuration, STOP_LABEL } from '../lib/format'
 import { renderMarkdown } from '../lib/markdown'
 import ToolCard from './ToolCard'
 import ReasoningBlock from './ReasoningBlock'
+import GeneratingCard from './GeneratingCard'
 
 /** 流式期间的 500ms 心跳,驱动"已用 X 秒"实时刷新 */
 function useNow(active: boolean): number {
@@ -174,7 +175,22 @@ function AssistantTurn({ message, now, live = false }: { message: ChatMessage; n
 
         {blocks.map((block, i) => {
           if (block.type === 'reasoning') return <ReasoningBlock key={i} block={block} live={live} now={now} />
-          if (block.type === 'tool' && block.tool) return <ToolCard key={block.tool.id} call={block.tool} now={now} />
+          if (block.type === 'tool' && block.tool) {
+            const isImageTool = block.tool.name === 'generate_image' || block.tool.name === 'edit_image'
+            return (
+              <div key={block.tool.id} className="flex flex-col gap-2">
+                <ToolCard call={block.tool} now={now} />
+                {/* 生图/编辑执行中:流光占位动画展示生成过程 */}
+                {block.tool.status === 'running' && isImageTool && (
+                  <GeneratingCard
+                    startedAt={block.tool.startedAt}
+                    label={block.tool.name === 'generate_image' ? '正在生成图片' : '正在编辑图片'}
+                    now={now}
+                  />
+                )}
+              </div>
+            )
+          }
           if (block.type === 'text' && block.text) {
             return <div key={i} className="md assistant-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(block.text) }} />
           }

@@ -120,8 +120,8 @@ export function registerIpc(): void {
 
   ipcMain.handle(
     IPC.ASSETS_UPLOAD,
-    (_e, sessionId: string, dataUrl: string, kind: ImageAsset['kind'], baseAssetId?: string): ImageAsset =>
-      saveDataUrlAsset({ sessionId, dataUrl, kind, baseAssetId })
+    (_e, sessionId: string, dataUrl: string, kind: ImageAsset['kind'], baseAssetId?: string, label?: string): ImageAsset =>
+      saveDataUrlAsset({ sessionId, dataUrl, kind, baseAssetId, label })
   )
 
   /** 图片右键菜单:复制到剪贴板 / 另存为 */

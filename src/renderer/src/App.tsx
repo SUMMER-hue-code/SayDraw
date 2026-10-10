@@ -7,6 +7,7 @@ import ImageCanvas from './components/ImageCanvas'
 import VersionStrip from './components/VersionStrip'
 import SettingsDialog from './components/SettingsDialog'
 import ImageViewer from './components/ImageViewer'
+import MaskEditorModal from './components/MaskEditorModal'
 import { useSessionsStore } from './stores/sessions'
 import { useChatStore } from './stores/chat'
 import { useSettingsStore } from './stores/settings'
@@ -54,6 +55,7 @@ export default function App() {
         <VersionStrip />
       </aside>
       {settingsOpen && <SettingsDialog />}
+      <MaskEditorModal />
       <ImageViewer />
     </div>
   )

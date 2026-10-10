@@ -52,6 +52,32 @@ select option:checked {
   color: #fff;
 }
 
+/* 生图等待动画 */
+@keyframes gen-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+@keyframes gen-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.generating-shimmer {
+  background: linear-gradient(100deg, rgba(139, 92, 246, 0.04) 30%, rgba(139, 92, 246, 0.16) 50%, rgba(139, 92, 246, 0.04) 70%);
+  background-size: 200% 100%;
+  animation: gen-shimmer 2.2s linear infinite;
+}
+
 /* 助手消息 markdown */
 .assistant-md {
   font-size: 13px;

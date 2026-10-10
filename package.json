@@ -1,6 +1,6 @@
 {
   "name": "ai-image-agent",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "AIImage - 对话式图片创作 Agent(Windows 桌面端)",
   "main": "./out/main/index.js",
   "author": "AIImage",

@@ -23,6 +23,8 @@ export interface ImageAsset {
   parentId?: string
   /** 蒙版对应的底图 */
   baseAssetId?: string
+  /** 蒙版类型:binary=接口用二值蒙版(透明区待改),overlay=给模型看的彩色编号标注图 */
+  label?: string
   /** 相对路径:assets/{sessionId}/{fileName} */
   fileName: string
   mime: string
@@ -97,6 +99,8 @@ export interface ImageBrief {
   colorTone?: string
   /** 画面比例:1:1 16:9 9:16 4:3 3:4 */
   aspectRatio?: string
+  /** 输出分辨率:如 1024x1024 / 2048x2048 / 3840x2160(生成前必须明确) */
+  resolution?: string
   /** 用途:头像 / 海报 / 壁纸 / 文章配图 … */
   usage?: string
   /** 要避免的元素 */
@@ -121,6 +125,7 @@ export const BRIEF_SLOTS: BriefSlotMeta[] = [
   { key: 'composition', label: '构图', hint: '视角、景别、画面布局' },
   { key: 'colorTone', label: '色调氛围', hint: '冷暖、明亮、暗黑…' },
   { key: 'aspectRatio', label: '画面比例', hint: '1:1 / 16:9 / 9:16 …', required: true },
+  { key: 'resolution', label: '分辨率', hint: '1024x1024 / 2048x2048 / 3840x2160', required: true },
   { key: 'usage', label: '用途', hint: '头像、海报、壁纸…' },
   { key: 'negativePrompts', label: '避免元素', hint: '不希望出现的内容' },
   { key: 'notes', label: '补充说明', hint: '其他要求' }

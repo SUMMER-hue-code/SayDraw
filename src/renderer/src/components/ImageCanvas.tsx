@@ -1,184 +1,61 @@
-import { useEffect, useRef, useState } from 'react'
-import { Stage, Layer, Image as KImage, Line } from 'react-konva'
-import type Konva from 'konva'
-import { assetUrl } from '@shared/ipc'
+// 画布面板(侧栏):图片预览 + 蒙版笔迹预览;蒙版编辑一律进大窗口编辑器
+
 import { useChatStore } from '../stores/chat'
 import { useCanvasStore } from '../stores/canvas'
 import { useViewerStore } from '../stores/viewer'
-
-const MAX_CANVAS_H = 380
-
-function useHtmlImage(url: string | null): HTMLImageElement | null {
-  const [img, setImg] = useState<HTMLImageElement | null>(null)
-  useEffect(() => {
-    if (!url) {
-      setImg(null)
-      return
-    }
-    const el = new window.Image()
-    el.onload = () => setImg(el)
-    el.src = url
-    return () => {
-      el.onload = null
-    }
-  }, [url])
-  return img
-}
-
-interface Stroke {
-  points: number[] // 舞台显示坐标 [x1,y1,x2,y2,...]
-}
+import MaskStage from './MaskStage'
+import { usedBrushIds } from '../lib/mask'
 
 export default function ImageCanvas() {
   const baseAssetId = useCanvasStore((s) => s.baseAssetId)
   const assets = useChatStore((s) => s.assets)
   const brushMode = useCanvasStore((s) => s.brushMode)
-  const brushSize = useCanvasStore((s) => s.brushSize)
   const setBrushMode = useCanvasStore((s) => s.setBrushMode)
-  const setBrushSize = useCanvasStore((s) => s.setBrushSize)
-  const setMask = useCanvasStore((s) => s.setMask)
+  const strokes = useCanvasStore((s) => s.strokes)
+  const clearStrokes = useCanvasStore((s) => s.clearStrokes)
   const maskDataUrl = useCanvasStore((s) => s.maskDataUrl)
+  const setEditorOpen = useCanvasStore((s) => s.setEditorOpen)
 
   const asset = baseAssetId ? assets[baseAssetId] : null
-  const img = useHtmlImage(asset ? assetUrl(asset.sessionId, asset.fileName) : null)
 
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const [availW, setAvailW] = useState(0)
-  const [strokes, setStrokes] = useState<Stroke[]>([])
-  const drawingRef = useRef(false)
-
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) setAvailW(entry.contentRect.width)
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  // 切换底图 → 清空笔迹
-  useEffect(() => {
-    setStrokes([])
-  }, [baseAssetId])
-
-  const scale = img ? Math.min(availW / img.naturalWidth, MAX_CANVAS_H / img.naturalHeight, 2) : 1
-  const stageW = img ? Math.round(img.naturalWidth * scale) : 0
-  const stageH = img ? Math.round(img.naturalHeight * scale) : 0
-
-  // 笔迹变化 → 生成 OpenAI 约定蒙版(透明区域 = 待重绘),防抖
-  useEffect(() => {
-    if (!img || !asset) return
-    const timer = setTimeout(() => {
-      if (strokes.length === 0) {
-        setMask(null)
-        return
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
-      const ctx = canvas.getContext('2d')!
-      ctx.fillStyle = '#000'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = '#fff'
-      ctx.lineWidth = Math.max(1, brushSize / scale)
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      for (const stroke of strokes) {
-        ctx.beginPath()
-        ctx.moveTo(stroke.points[0] / scale, stroke.points[1] / scale)
-        if (stroke.points.length === 2) {
-          ctx.lineTo(stroke.points[0] / scale + 0.1, stroke.points[1] / scale)
-        }
-        for (let i = 2; i < stroke.points.length; i += 2) {
-          ctx.lineTo(stroke.points[i] / scale, stroke.points[i + 1] / scale)
-        }
-        ctx.stroke()
-      }
-      setMask(canvas.toDataURL('image/png'))
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [strokes, img, asset, brushSize, scale, setMask])
-
-  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void => {
-    if (!brushMode || !img) return
-    const stage = e.target.getStage()
-    const pos = stage?.getPointerPosition()
-    if (!pos) return
-    drawingRef.current = true
-    setStrokes((prev) => [...prev, { points: [pos.x, pos.y] }])
+  if (!asset) {
+    return (
+      <section className="rounded-xl border border-zinc-800 bg-[#15171c]">
+        <header className="border-b border-zinc-800/80 px-3 py-2">
+          <h2 className="text-xs font-semibold tracking-wide text-zinc-300">🖼 画布</h2>
+        </header>
+        <div className="flex h-40 items-center justify-center p-2 text-center text-[11px] text-zinc-600">
+          生成 / 上传的图片会显示在这里,点击聊天中的图片即可载入
+        </div>
+      </section>
+    )
   }
 
-  const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void => {
-    if (!drawingRef.current) return
-    const stage = e.target.getStage()
-    const pos = stage?.getPointerPosition()
-    if (!pos) return
-    setStrokes((prev) => {
-      if (prev.length === 0) return prev
-      const copy = [...prev]
-      const last = copy[copy.length - 1]
-      copy[copy.length - 1] = { points: [...last.points, pos.x, pos.y] }
-      return copy
-    })
-  }
-
-  const finishStroke = (): void => {
-    drawingRef.current = false
-  }
+  const usedIds = usedBrushIds(strokes)
 
   return (
     <section className="rounded-xl border border-zinc-800 bg-[#15171c]">
       <header className="flex flex-wrap items-center gap-2 border-b border-zinc-800/80 px-3 py-2">
         <h2 className="mr-auto text-xs font-semibold tracking-wide text-zinc-300">🖼 画布</h2>
-        <div className="flex overflow-hidden rounded-lg border border-zinc-700">
-          <button
-            className={`px-2.5 py-1 text-[11px] ${!brushMode ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800'}`}
-            onClick={() => setBrushMode(false)}
-          >
-            预览
+        {brushMode && maskDataUrl && (
+          <button className="rounded px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800" onClick={clearStrokes} disabled={!strokes.length}>
+            清除蒙版
           </button>
-          <button
-            className={`px-2.5 py-1 text-[11px] ${brushMode ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:bg-zinc-800'}`}
-            onClick={() => setBrushMode(true)}
-            disabled={!asset}
-          >
-            涂抹蒙版
-          </button>
-        </div>
-        {brushMode && (
-          <>
-            <input
-              type="range"
-              min={6}
-              max={72}
-              value={brushSize}
-              onChange={(e) => setBrushSize(Number(e.target.value))}
-              className="w-16 accent-violet-500"
-              title={`笔刷 ${brushSize}px`}
-            />
-            <button
-              className="rounded px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800"
-              onClick={() => setStrokes((prev) => prev.slice(0, -1))}
-              disabled={strokes.length === 0}
-            >
-              撤销
-            </button>
-            <button
-              className="rounded px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800"
-              onClick={() => setStrokes([])}
-              disabled={strokes.length === 0}
-            >
-              清空
-            </button>
-          </>
         )}
+        <button
+          className={`rounded-lg px-2.5 py-1 text-[11px] ${brushMode ? 'bg-violet-600 text-white' : 'border border-zinc-700 text-zinc-300 hover:border-violet-500 hover:text-violet-300'}`}
+          title={brushMode ? '蒙版编辑中:点击打开大窗口编辑器' : '涂抹蒙版:在大窗口编辑器中精细标注修改区域(支持编号画笔多处修改)'}
+          onClick={() => {
+            setBrushMode(true)
+            setEditorOpen(true)
+          }}
+        >
+          🖌 {maskDataUrl ? `蒙版${usedIds.length ? ` · ${usedIds.length} 处` : ''} · 编辑` : '涂抹蒙版'}
+        </button>
       </header>
 
       <div
-        ref={wrapRef}
-        className="flex items-center justify-center overflow-hidden p-2"
+        className="p-2"
         onContextMenu={(e) => {
           if (asset && asset.kind !== 'mask') {
             e.preventDefault()
@@ -190,45 +67,13 @@ export default function ImageCanvas() {
         }}
         title={asset ? '双击放大查看 · 右键复制/另存为' : undefined}
       >
-        {!asset || !img ? (
-          <div className="flex h-40 w-full items-center justify-center rounded-lg border border-dashed border-zinc-800 text-[11px] text-zinc-600">
-            生成 / 上传的图片会显示在这里,点击聊天中的图片即可载入
-          </div>
-        ) : (
-          <Stage
-            width={stageW}
-            height={stageH}
-            style={{ cursor: brushMode ? 'crosshair' : 'default', borderRadius: 8 }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={finishStroke}
-            onMouseLeave={finishStroke}
-            onTouchStart={handleMouseDown}
-            onTouchMove={handleMouseMove}
-            onTouchEnd={finishStroke}
-          >
-            <Layer>
-              <KImage image={img} width={stageW} height={stageH} />
-              {strokes.map((stroke, i) => (
-                <Line
-                  key={i}
-                  points={stroke.points}
-                  stroke="#fb7185"
-                  strokeWidth={brushSize}
-                  opacity={0.55}
-                  lineCap="round"
-                  lineJoin="round"
-                  listening={false}
-                />
-              ))}
-            </Layer>
-          </Stage>
-        )}
+        <MaskStage asset={asset} mode="view" maxH={380} />
       </div>
 
       {maskDataUrl && (
         <p className="border-t border-zinc-800/80 px-3 py-2 text-[11px] text-amber-400/90">
-          🖌 蒙版已就绪:在输入框描述要改成什么,发送时会自动附带(红色区域将被重绘)
+          🖌 蒙版已就绪{usedIds.length > 1 ? `(编号 ${usedIds.join('、')} 共 ${usedIds.length} 处)` : ''}:在输入框描述
+          {usedIds.length > 1 ? '每个编号' : ''}要改成什么,发送时自动附带
         </p>
       )}
     </section>

@@ -34,7 +34,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="border-t border-zinc-800/80 px-4 py-3 text-[11px] text-zinc-600">
-        <p>v0.4.0 · 对话式图片创作 Agent</p>
+        <p>v0.5.0 · 对话式图片创作 Agent</p>
       </div>
     </aside>
   )

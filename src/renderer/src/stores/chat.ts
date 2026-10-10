@@ -41,12 +41,21 @@ interface ChatStore {
 export const selectStreaming = (sessionId: string | null) => (s: ChatStore): StreamingState | undefined =>
   sessionId ? s.streamingBySession[sessionId] : undefined
 
+/** 新文本块开始前,为仍在流式的思考块封口(endedAt),保证只有最后一个思考块在计时 */
+function closeTrailingReasoning(blocks: MessageBlock[]): MessageBlock[] {
+  const last = blocks[blocks.length - 1]
+  if (last?.type === 'reasoning' && last.endedAt === undefined) {
+    return [...blocks.slice(0, -1), { ...last, endedAt: Date.now() }]
+  }
+  return blocks
+}
+
 function appendToLastText(blocks: MessageBlock[], piece: string): MessageBlock[] {
   const last = blocks[blocks.length - 1]
   if (last?.type === 'text') {
     return [...blocks.slice(0, -1), { ...last, text: (last.text ?? '') + piece }]
   }
-  return [...blocks, { type: 'text', text: piece }]
+  return [...closeTrailingReasoning(blocks), { type: 'text', text: piece }]
 }
 
 function appendToLastReasoning(blocks: MessageBlock[], piece: string): MessageBlock[] {
@@ -64,7 +73,7 @@ function upsertToolBlock(blocks: MessageBlock[], call: ToolCallRecord): MessageB
     copy[idx] = { type: 'tool', tool: call }
     return copy
   }
-  return [...blocks, { type: 'tool', tool: call }]
+  return [...closeTrailingReasoning(blocks), { type: 'tool', tool: call }]
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
