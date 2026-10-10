@@ -223,7 +223,7 @@ export default function MaskStage(props: { asset: ImageAsset; mode: 'view' | 'ed
             max={200}
             value={brushSize}
             onChange={(e) => setBrushSize(Number(e.target.value))}
-            className="w-24 accent-violet-500"
+            className="w-24 accent-emerald-500"
             title={`笔刷 ${brushSize}px([ / ] 调整)`}
           />
           <span className="w-8 text-center font-mono text-[10px] text-zinc-400">{brushSize}</span>
@@ -236,7 +236,7 @@ export default function MaskStage(props: { asset: ImageAsset; mode: 'view' | 'ed
           </button>
           <span className="mx-0.5 h-5 w-px bg-zinc-700" />
           <button
-            className={`rounded px-2 py-1 text-[11px] ${panMode ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:bg-zinc-800'}`}
+            className={`rounded px-2 py-1 text-[11px] ${panMode ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:bg-zinc-800'}`}
             onClick={() => setPanMode((p) => !p)}
             title="平移模式(或按住空格拖拽 / 中键拖拽)"
           >

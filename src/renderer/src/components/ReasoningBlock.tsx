@@ -32,7 +32,7 @@ export default function ReasoningBlock({ block, live, now }: { block: MessageBlo
         onClick={() => setManual(!open)}
         title={open ? '收起思考全文' : '展开思考全文'}
       >
-        <span className={`text-[11px] ${isLive ? 'animate-pulse text-violet-400' : 'text-zinc-500'}`}>💡</span>
+        <span className={`text-[11px] ${isLive ? 'animate-pulse text-emerald-400' : 'text-zinc-500'}`}>💡</span>
         <span className={`shrink-0 font-medium ${isLive ? 'text-zinc-300' : 'text-zinc-400'}`}>{isLive ? '思考中' : '已思考'}</span>
         <span className="shrink-0 tabular-nums text-[10px] text-zinc-500">{fmtDuration(duration)}</span>
         {/* 折叠态:单行流式尾行 */}

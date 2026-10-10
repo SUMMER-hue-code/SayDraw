@@ -31,7 +31,7 @@ export default function MaskEditorModal() {
         <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-zinc-500">{asset.id}</span>
         <span className="text-[10px] text-zinc-500">不同编号画笔 = 不同修改位置,发送消息时说明各编号要改什么</span>
         <button
-          className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-500"
+          className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
           onClick={() => setEditorOpen(false)}
         >
           完成

@@ -160,7 +160,7 @@ export default function SettingsDialog() {
             <aside className="flex w-[270px] shrink-0 flex-col border-r border-zinc-800">
               <div className="p-2.5">
                 <button
-                  className="w-full rounded-lg border border-dashed border-zinc-600 py-1.5 text-xs text-zinc-300 hover:border-violet-500 hover:text-violet-300"
+                  className="w-full rounded-lg border border-dashed border-zinc-600 py-1.5 text-xs text-zinc-300 hover:border-emerald-500 hover:text-emerald-300"
                   onClick={addGroup}
                 >
                   + 新建分组(连接)
@@ -182,7 +182,7 @@ export default function SettingsDialog() {
                         <span className="min-w-0 flex-1 truncate font-medium">{conn.name || '(未命名分组)'}</span>
                         <span className="shrink-0 text-[10px] text-zinc-500">{groupModels.length}</span>
                         <button
-                          className="hidden shrink-0 rounded px-1 text-[11px] text-violet-400 hover:text-violet-300 group-hover:block"
+                          className="hidden shrink-0 rounded px-1 text-[11px] text-emerald-400 hover:text-emerald-300 group-hover:block"
                           title="在本分组下添加模型"
                           onClick={(e) => {
                             e.stopPropagation()
@@ -210,13 +210,13 @@ export default function SettingsDialog() {
                             <div
                               key={m.id}
                               className={`group flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-xs ${
-                                modelSelected ? 'bg-violet-500/15 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50'
+                                modelSelected ? 'bg-emerald-500/15 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50'
                               }`}
                               onClick={() => setSelected({ kind: 'model', id: m.id })}
                             >
-                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-violet-400' : 'bg-transparent'}`} />
+                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-emerald-400' : 'bg-transparent'}`} />
                               <span className="min-w-0 flex-1 truncate">{m.name || m.model || '(未命名)'}</span>
-                              {active && <span className="shrink-0 text-[10px] text-violet-400">当前</span>}
+                              {active && <span className="shrink-0 text-[10px] text-emerald-400">当前</span>}
                               <button
                                 className="hidden shrink-0 rounded px-1 text-[11px] text-zinc-500 hover:text-red-400 group-hover:block"
                                 title="删除模型"
@@ -271,7 +271,7 @@ export default function SettingsDialog() {
               取消
             </button>
             <button
-              className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
               disabled={saving}
               onClick={() => void doSave()}
             >
@@ -360,7 +360,7 @@ function GroupPanel(props: {
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[11px] font-medium text-zinc-300">从服务端拉取模型列表</span>
           <button
-            className="rounded-md border border-zinc-700 px-2 py-1 text-[10px] text-zinc-300 hover:border-violet-500 hover:text-violet-300 disabled:opacity-50"
+            className="rounded-md border border-zinc-700 px-2 py-1 text-[10px] text-zinc-300 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-50"
             disabled={fetchState === 'loading' || !conn.baseUrl || !conn.apiKey}
             onClick={fetchList}
           >
@@ -383,7 +383,7 @@ function GroupPanel(props: {
                   {info.effortLevels?.length ? ` · 档位 ${info.effortLevels.join('/')}` : ''}
                 </span>
                 <button
-                  className="shrink-0 rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:border-violet-500 hover:text-violet-300 disabled:opacity-40"
+                  className="shrink-0 rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-40"
                   disabled={added}
                   onClick={() => props.onAddModel(info)}
                 >
@@ -446,10 +446,10 @@ function ModelPanel(props: { draft: AppSettings; patch: (p: Partial<AppSettings>
           🤖 模型设置 · <span className="text-zinc-500">{conn.name}/{model.name || model.model}</span>
         </h3>
         {isActive ? (
-          <span className="rounded-full bg-violet-500/20 px-2.5 py-1 text-[10px] text-violet-300">当前使用</span>
+          <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[10px] text-emerald-300">当前使用</span>
         ) : (
           <button
-            className="rounded-full border border-violet-500/60 px-2.5 py-1 text-[10px] text-violet-300 hover:bg-violet-500/15"
+            className="rounded-full border border-emerald-500/60 px-2.5 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/15"
             onClick={() => (isChat ? patch({ activeChatModelId: model.id }) : patch({ activeImageModelId: model.id }))}
           >
             设为当前使用
@@ -478,7 +478,7 @@ function ModelPanel(props: { draft: AppSettings; patch: (p: Partial<AppSettings>
               />
               <span className="w-1" />
               <button
-                className="shrink-0 text-[10px] text-violet-400 hover:text-violet-300 disabled:opacity-50"
+                className="shrink-0 text-[10px] text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
                 disabled={!conn.baseUrl || !conn.apiKey}
                 onClick={() =>
                   window.api.settings
@@ -513,7 +513,7 @@ function ModelPanel(props: { draft: AppSettings; patch: (p: Partial<AppSettings>
 
       <div className="flex items-center gap-3 border-t border-zinc-800 pt-3">
         <button
-          className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] text-zinc-300 hover:border-violet-500 hover:text-violet-300 disabled:opacity-50"
+          className="rounded-md border border-zinc-700 px-3 py-1.5 text-[11px] text-zinc-300 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-50"
           disabled={testing || !conn.baseUrl || !conn.apiKey || !model.model}
           onClick={runTest}
         >
@@ -597,7 +597,7 @@ function EffortField(props: { model: ChatModel; update: (p: Partial<ChatModel> &
           <span
             key={lv}
             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] ${
-              m.reasoningEffort === lv ? 'bg-violet-500/20 text-violet-300' : 'bg-zinc-800 text-zinc-300'
+              m.reasoningEffort === lv ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-zinc-300'
             }`}
           >
             {lv}
@@ -622,7 +622,7 @@ function EffortField(props: { model: ChatModel; update: (p: Partial<ChatModel> &
           className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-xs text-zinc-200 placeholder:font-sans placeholder:text-zinc-600"
         />
         <button
-          className="rounded-md border border-zinc-600 px-2 py-1 text-[11px] text-zinc-300 hover:border-violet-500 hover:text-violet-300 disabled:opacity-40"
+          className="rounded-md border border-zinc-600 px-2 py-1 text-[11px] text-zinc-300 hover:border-emerald-500 hover:text-emerald-300 disabled:opacity-40"
           disabled={!input.trim()}
           onClick={() => {
             setLevels([...levels, input])

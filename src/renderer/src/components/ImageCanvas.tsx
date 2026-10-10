@@ -43,7 +43,7 @@ export default function ImageCanvas() {
           </button>
         )}
         <button
-          className={`rounded-lg px-2.5 py-1 text-[11px] ${brushMode ? 'bg-violet-600 text-white' : 'border border-zinc-700 text-zinc-300 hover:border-violet-500 hover:text-violet-300'}`}
+          className={`rounded-lg px-2.5 py-1 text-[11px] ${brushMode ? 'bg-emerald-600 text-white' : 'border border-zinc-700 text-zinc-300 hover:border-emerald-500 hover:text-emerald-300'}`}
           title={brushMode ? '蒙版编辑中:点击打开大窗口编辑器' : '涂抹蒙版:在大窗口编辑器中精细标注修改区域(支持编号画笔多处修改)'}
           onClick={() => {
             setBrushMode(true)

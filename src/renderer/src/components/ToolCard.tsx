@@ -4,7 +4,7 @@ import { fmtDuration, statusIcon, toolMeta } from '../lib/format'
 
 /** 状态 → 左侧垂直色条颜色 */
 const TONE_BAR: Record<ToolCallRecord['status'], string> = {
-  running: 'bg-violet-400',
+  running: 'bg-emerald-400',
   ok: 'bg-emerald-500',
   error: 'bg-red-500',
   rejected: 'bg-amber-500'

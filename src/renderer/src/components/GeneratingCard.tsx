@@ -22,13 +22,13 @@ export default function GeneratingCard(props: { startedAt?: number; label: strin
   const elapsed = startedAt ? now - startedAt : 0
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl border border-violet-500/30 bg-zinc-800/40">
+    <div className="relative w-full overflow-hidden rounded-xl border border-emerald-500/30 bg-zinc-800/40">
       <div className="generating-shimmer flex h-44 flex-col items-center justify-center gap-2">
         <div className="flex items-end gap-1">
           {[0, 1, 2, 3].map((i) => (
             <span
               key={i}
-              className="block h-2 w-2 rounded-full bg-violet-400"
+              className="block h-2 w-2 rounded-full bg-emerald-400"
               style={{ animation: `gen-bounce 1.2s ease-in-out ${i * 0.15}s infinite` }}
             />
           ))}

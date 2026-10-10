@@ -55,7 +55,7 @@ export default function ProjectBar() {
       {session.projectPath ? (
         <>
           <button
-            className="flex min-w-0 items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-zinc-300 hover:border-violet-500/60"
+            className="flex min-w-0 items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/60 px-2.5 py-1 text-zinc-300 hover:border-emerald-500/60"
             title={`${session.projectPath}\n点击重新选择工作目录`}
             onClick={() =>
               void pick(session.id).then((r) => {

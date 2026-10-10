@@ -25,7 +25,7 @@ export default function QuestionPanel() {
   }
 
   return (
-    <div className="mb-2 rounded-2xl border border-violet-500/50 bg-violet-500/10 px-4 py-3">
+    <div className="mb-2 rounded-2xl border border-emerald-500/50 bg-emerald-500/10 px-4 py-3">
       <div className="mb-2.5 flex items-start gap-2">
         <span className="text-base">❓</span>
         <p className="text-sm font-medium leading-relaxed text-zinc-100">{q.text}</p>
@@ -46,7 +46,7 @@ export default function QuestionPanel() {
           className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600"
         />
         <button
-          className="rounded-lg border border-violet-500/60 px-3 py-1.5 text-xs text-violet-300 hover:bg-violet-500/15 disabled:opacity-40"
+          className="rounded-lg border border-emerald-500/60 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
           disabled={submitting || !freeText.trim()}
           onClick={() => void answer(freeText.trim())}
         >
@@ -62,7 +62,7 @@ function OptionButton({ opt, disabled, onPick }: { opt: AgentQuestionOption; dis
     <button
       className={`flex items-start gap-2 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50 ${
         opt.recommended
-          ? 'border-violet-500 bg-violet-500/15 hover:bg-violet-500/25'
+          ? 'border-emerald-500 bg-emerald-500/15 hover:bg-emerald-500/25'
           : 'border-zinc-700 bg-zinc-800/40 hover:border-zinc-500'
       }`}
       disabled={disabled}
@@ -73,7 +73,7 @@ function OptionButton({ opt, disabled, onPick }: { opt: AgentQuestionOption; dis
         {opt.description && <span className="mt-0.5 block text-[11px] leading-snug text-zinc-400">{opt.description}</span>}
       </span>
       {opt.recommended && (
-        <span className="shrink-0 rounded-full bg-violet-500/25 px-1.5 py-0.5 text-[10px] font-medium text-violet-300">⭐ 推荐</span>
+        <span className="shrink-0 rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">⭐ 推荐</span>
       )}
     </button>
   )

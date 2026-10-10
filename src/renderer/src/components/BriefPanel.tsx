@@ -31,7 +31,7 @@ export default function BriefPanel() {
           return (
             <div key={slot.key} className="flex items-start gap-2 text-xs">
               <span className={`mt-0.5 w-14 shrink-0 ${slot.required ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                {slot.required && <span className="mr-0.5 text-violet-400">*</span>}
+                {slot.required && <span className="mr-0.5 text-emerald-400">*</span>}
                 {slot.label}
               </span>
               {filled ? (

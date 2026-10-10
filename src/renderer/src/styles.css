@@ -29,7 +29,7 @@ body {
 }
 
 ::selection {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(16, 185, 129, 0.4);
 }
 
 input,
@@ -73,7 +73,7 @@ select option:checked {
   }
 }
 .generating-shimmer {
-  background: linear-gradient(100deg, rgba(139, 92, 246, 0.04) 30%, rgba(139, 92, 246, 0.16) 50%, rgba(139, 92, 246, 0.04) 70%);
+  background: linear-gradient(100deg, rgba(16, 185, 129, 0.04) 30%, rgba(16, 185, 129, 0.16) 50%, rgba(16, 185, 129, 0.04) 70%);
   background-size: 200% 100%;
   animation: gen-shimmer 2.2s linear infinite;
 }

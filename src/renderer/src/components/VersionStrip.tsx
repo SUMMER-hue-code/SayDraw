@@ -40,7 +40,7 @@ export default function VersionStrip() {
             <button
               key={asset.id}
               className={`group relative overflow-hidden rounded-lg border ${
-                asset.id === baseAssetId ? 'border-violet-500 ring-1 ring-violet-500/60' : 'border-zinc-700/60 hover:border-zinc-500'
+                asset.id === baseAssetId ? 'border-emerald-500 ring-1 ring-emerald-500/60' : 'border-zinc-700/60 hover:border-zinc-500'
               }`}
               onClick={() => setBase(asset.id)}
               onDoubleClick={() => useViewerStore.getState().open(asset.id)}

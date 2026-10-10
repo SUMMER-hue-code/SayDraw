@@ -77,7 +77,7 @@ export default function ChatPanel() {
       }}
     >
       {dragOver && (
-        <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-violet-500 bg-violet-500/10 text-sm text-violet-300">
+        <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-500 bg-emerald-500/10 text-sm text-emerald-300">
           松开以添加图片
         </div>
       )}
@@ -103,7 +103,7 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
   ]
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col items-center justify-center gap-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-2xl">
         🎨
       </div>
       <div>
@@ -118,7 +118,7 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
         {suggestions.map((s) => (
           <button
             key={s}
-            className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 text-left text-sm text-zinc-300 transition-colors hover:border-violet-500/50 hover:bg-zinc-800/60"
+            className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 text-left text-sm text-zinc-300 transition-colors hover:border-emerald-500/50 hover:bg-zinc-800/60"
             onClick={() => onPick(s)}
           >
             {s}
@@ -145,7 +145,7 @@ function UserTurn({ message }: { message: ChatMessage }) {
         </div>
       )}
       {message.text && (
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-violet-600 px-4 py-2.5 text-sm leading-relaxed text-white">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-emerald-600 px-4 py-2.5 text-sm leading-relaxed text-white">
           {message.text}
         </div>
       )}
@@ -161,7 +161,7 @@ function AssistantTurn({ message, now, live = false }: { message: ChatMessage; n
 
   return (
     <div className="flex gap-3">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-xs">
         ✦
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -239,7 +239,7 @@ function MessageImages({ assetIds, dense = false }: { assetIds: string[]; dense?
       {visible.map((asset) => (
         <button
           key={asset.id}
-          className="group relative overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 transition-all hover:border-violet-500/70"
+          className="group relative overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 transition-all hover:border-emerald-500/70"
           onClick={() => setBase(asset.id)}
           onDoubleClick={() => useViewerStore.getState().open(asset.id)}
           onContextMenu={(e) => {

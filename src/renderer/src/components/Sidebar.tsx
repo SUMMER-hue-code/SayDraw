@@ -12,7 +12,7 @@ export default function Sidebar() {
   return (
     <aside className="flex w-[220px] shrink-0 flex-col bg-[#0d0f13]">
       <div className="flex items-center gap-2 px-4 py-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold">
           画
         </div>
         <span className="text-sm font-semibold tracking-wide">说画 <span className="text-[10px] font-normal text-zinc-500">SayDraw</span></span>
@@ -20,7 +20,7 @@ export default function Sidebar() {
 
       <div className="px-3">
         <button
-          className="w-full rounded-lg bg-violet-600 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+          className="w-full rounded-lg bg-emerald-600 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
           onClick={() => void create()}
         >
           + 新会话
@@ -57,7 +57,7 @@ function SessionItem(props: {
     >
       {running ? (
         <span
-          className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-violet-400 border-t-transparent"
+          className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-emerald-400 border-t-transparent"
           title="推理进行中,切走不会中断"
         />
       ) : (

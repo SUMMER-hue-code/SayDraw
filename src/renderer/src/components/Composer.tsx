@@ -47,14 +47,14 @@ function PopoverSelect(props: {
                   key={opt.value}
                   type="button"
                   className={`flex w-full items-center gap-2 whitespace-nowrap rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                    active ? 'bg-violet-500/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'
+                    active ? 'bg-emerald-500/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'
                   }`}
                   onClick={() => {
                     props.onChange(opt.value)
                     setOpen(false)
                   }}
                 >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-violet-400' : 'bg-transparent'}`} />
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-emerald-400' : 'bg-transparent'}`} />
                   <span className={mono ? 'font-mono' : ''}>{opt.label}</span>
                   {opt.hint && <span className="ml-auto shrink-0 text-[9px] text-zinc-500">{opt.hint}</span>}
                 </button>
@@ -120,14 +120,14 @@ function ModelPicker(props: {
                         key={m.id}
                         type="button"
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
-                          active ? 'bg-violet-500/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'
+                          active ? 'bg-emerald-500/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800'
                         }`}
                         onClick={() => {
                           props.onChange(m.id)
                           setOpen(false)
                         }}
                       >
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-violet-400' : 'bg-transparent'}`} />
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? 'bg-emerald-400' : 'bg-transparent'}`} />
                         <span className="min-w-0 flex-1 truncate">{m.model || m.name}</span>
                         {noVision(m) && <span className="shrink-0 text-[9px] text-amber-500/80">无视觉</span>}
                       </button>
@@ -267,7 +267,7 @@ export default function Composer() {
         <ProjectBar />
         <QuestionPanel />
 
-        <div className="rounded-2xl border border-zinc-700/70 bg-zinc-900/70 focus-within:border-violet-500/60 focus-within:shadow-[0_0_0_2px_rgba(139,92,246,0.15)]">
+        <div className="rounded-2xl border border-zinc-700/70 bg-zinc-900/70 focus-within:border-emerald-500/60 focus-within:shadow-[0_0_0_2px_rgba(16,185,129,0.15)]">
           {/* 附件行 */}
           {(pending.length > 0 || pendingTexts.length > 0 || (maskDataUrl && maskBaseAssetId)) && (
             <div className="flex flex-wrap gap-2 px-3 pt-2.5">
@@ -398,7 +398,7 @@ export default function Composer() {
               </button>
             ) : (
               <button
-                className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/25 transition-all hover:bg-violet-500 hover:shadow-violet-500/40 disabled:opacity-30 disabled:shadow-none"
+                className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 transition-all hover:bg-emerald-500 hover:shadow-emerald-500/40 disabled:opacity-30 disabled:shadow-none"
                 title="发送"
                 disabled={!sessionId || (!inputText.trim() && pending.length === 0 && pendingTexts.length === 0 && !(maskDataUrl && maskBaseAssetId))}
                 onClick={() => void doSend()}
