@@ -15,7 +15,7 @@ export default function Sidebar() {
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold">
           画
         </div>
-        <span className="text-sm font-semibold tracking-wide">AIImage</span>
+        <span className="text-sm font-semibold tracking-wide">说画 <span className="text-[10px] font-normal text-zinc-500">SayDraw</span></span>
       </div>
 
       <div className="px-3">
@@ -34,7 +34,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="border-t border-zinc-800/80 px-4 py-3 text-[11px] text-zinc-600">
-        <p>v0.5.0 · 对话式图片创作 Agent</p>
+        <p>v0.5.1 · 说画 SayDraw</p>
       </div>
     </aside>
   )

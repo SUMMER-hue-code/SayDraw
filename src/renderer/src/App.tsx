@@ -70,7 +70,7 @@ function Header() {
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-800/80 px-4">
       <h1 className="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">
-        {session?.title ?? 'AIImage'}
+        {session?.title ?? '说画 SayDraw'}
       </h1>
       <button
         className="rounded-md px-2 py-1 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"

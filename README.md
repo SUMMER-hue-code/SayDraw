@@ -1,8 +1,8 @@
-# AIImage — 对话式图片创作 Agent(Windows 桌面端 · 开源)
+# 说画 SayDraw — 对话式图片创作 Agent(Windows 桌面端 · 开源)
 
 以工程文件夹为中心的桌面图像创作 Agent:多模态大模型理解需求与图像,多轮沟通收集需求、确认后调用生图模型创作;支持连续修图、蒙版局部重绘、多参考图融合与本地图片处理。任何 OpenAI / Anthropic 兼容模型服务均可接入。
 
-![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-Windows-blue) ![Version](https://img.shields.io/badge/version-0.5.0-violet)
+![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-Windows-blue) ![Version](https://img.shields.io/badge/version-0.5.1-violet)
 
 ## 功能
 

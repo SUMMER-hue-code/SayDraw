@@ -11,6 +11,17 @@ import { sessionAssetsDirs } from './store/assets'
 
 const { app, BrowserWindow, protocol, net } = electron
 
+// 应用更名(ai-image-agent → saydraw/说画)后固定 userData 目录并把旧数据整体迁入,保留用户的会话/图片/设置
+{
+  const appData = app.getPath('appData')
+  const newDataDir = join(appData, 'SayDraw')
+  if (!fs.existsSync(newDataDir)) {
+    const legacy = [join(appData, 'ai-image-agent'), join(appData, 'AIImage')].find((d) => fs.existsSync(d))
+    if (legacy) fs.cpSync(legacy, newDataDir, { recursive: true })
+  }
+  app.setPath('userData', newDataDir)
+}
+
 // 自定义协议需在 app ready 前注册为特权 scheme
 protocol.registerSchemesAsPrivileged([
   {
@@ -28,7 +39,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#0f1117',
-    title: 'AIImage',
+    title: '说画 SayDraw',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -73,7 +84,7 @@ function registerAssetProtocol(): void {
 }
 
 app.whenReady().then(() => {
-  app.setAppUserModelId('com.aiimage.app')
+  app.setAppUserModelId('com.saydraw.app')
 
   getDb().init()
   getSettings().load()

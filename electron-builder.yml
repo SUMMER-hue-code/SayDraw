@@ -1,5 +1,5 @@
-appId: com.aiimage.app
-productName: AIImage
+appId: com.saydraw.app
+productName: SayDraw
 directories:
   output: dist-release
   buildResources: build
