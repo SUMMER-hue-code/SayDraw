@@ -16,6 +16,73 @@ function newId(): string {
 
 const inputCls = 'w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600'
 
+// 新建分组模板:预填官方连接配置,省去手查文档
+interface ConnTemplate {
+  key: string
+  label: string
+  desc: string
+  conn: Omit<ModelConnection, 'id'>
+  chatModel?: Omit<ChatModel, 'id' | 'groupId'>
+  imageModel?: Omit<ImageModel, 'id' | 'groupId'>
+}
+
+const CHAT_TEMPLATES: ConnTemplate[] = [
+  {
+    key: 'deepseek',
+    label: 'DeepSeek 官方',
+    desc: 'api.deepseek.com · 只填 API Key,附 deepseek-flash',
+    conn: { name: 'DeepSeek 官方', baseUrl: 'https://api.deepseek.com', apiKey: '', apiFormat: 'openai' },
+    chatModel: { name: 'deepseek-flash', model: 'deepseek-flash', contextWindow: 1_048_576, maxOutputTokens: 65_536, supportsVision: true }
+  },
+  {
+    key: 'opencode',
+    label: 'OpenCode Go',
+    desc: '订阅网关 · GLM/Kimi/DeepSeek/Qwen 等;自动带会话头;识图仅 deepseek-v4-flash-vision-exp',
+    conn: { name: 'OpenCode Go', baseUrl: 'https://opencode.ai/zen/go/v1', apiKey: '', apiFormat: 'openai' }
+  },
+  {
+    key: 'opencode-anthropic',
+    label: 'OpenCode Go(Anthropic 模型)',
+    desc: 'claude-haiku / MiniMax / Qwen 走 /messages 规范',
+    conn: { name: 'OpenCode Go (Anthropic)', baseUrl: 'https://opencode.ai/zen/go', apiKey: '', apiFormat: 'anthropic' }
+  },
+  {
+    key: 'zhipu',
+    label: '智谱',
+    desc: 'open.bigmodel.cn · GLM 系列',
+    conn: { name: '智谱', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '', apiFormat: 'openai' }
+  },
+  {
+    key: 'custom',
+    label: '自定义',
+    desc: '空白分组,手动填写全部配置',
+    conn: { name: '新分组', baseUrl: '', apiKey: '', apiFormat: 'openai' }
+  }
+]
+
+const IMAGE_TEMPLATES: ConnTemplate[] = [
+  {
+    key: 'cffan',
+    label: 'GPT-Image-2 (cf.api.fan)',
+    desc: '生图+编辑 · n=1,参考图 16 张',
+    conn: { name: 'GPT-Image-2 (cf.api.fan)', baseUrl: 'https://cf.api.fan', apiKey: '', genPath: '/v1/images/generations', editPath: '/v1/images/edits' },
+    imageModel: { name: 'gpt-image-2', model: 'gpt-image-2', maxN: 1, maxReferenceImages: 16, maxImageMB: 25, maxPromptChars: 32_000, outputFormat: 'png' }
+  },
+  {
+    key: 'zhipu',
+    label: '智谱 CogView',
+    desc: 'open.bigmodel.cn · 国产生图',
+    conn: { name: '智谱', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '', genPath: '/images/generations', editPath: '/images/edits' },
+    imageModel: { name: 'cogview-4', model: 'cogview-4' }
+  },
+  {
+    key: 'custom',
+    label: '自定义',
+    desc: '空白分组,手动填写全部配置',
+    conn: { name: '新分组', baseUrl: '', apiKey: '', genPath: '/images/generations', editPath: '/images/edits' }
+  }
+]
+
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="flex flex-col gap-1" title={hint}>
@@ -33,6 +100,7 @@ export default function SettingsDialog() {
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState<Tab>('chat')
   const [selected, setSelected] = useState<Selection>(null)
+  const [templateOpen, setTemplateOpen] = useState(false)
 
   useEffect(() => {
     setDraft(structuredClone(settings))
@@ -52,17 +120,19 @@ export default function SettingsDialog() {
 
   // ---------- 增删 ----------
 
-  const addGroup = (): void => {
-    const conn: ModelConnection = {
-      id: newId(),
-      name: '新分组',
-      baseUrl: '',
-      apiKey: '',
-      ...(isChat ? { apiFormat: 'openai' as ApiFormat } : { genPath: '/images/generations', editPath: '/images/edits' })
+  const addGroup = (tpl: ConnTemplate): void => {
+    const conn: ModelConnection = { ...tpl.conn, id: newId() }
+    const next = { ...draft }
+    if (isChat) {
+      next.chatConnections = [...draft.chatConnections, conn]
+      if (tpl.chatModel) next.chatModels = [...draft.chatModels, { ...tpl.chatModel, id: newId(), groupId: conn.id }]
+    } else {
+      next.imageConnections = [...draft.imageConnections, conn]
+      if (tpl.imageModel) next.imageModels = [...draft.imageModels, { ...tpl.imageModel, id: newId(), groupId: conn.id }]
     }
-    if (isChat) patch({ chatConnections: [...draft.chatConnections, conn] })
-    else patch({ imageConnections: [...draft.imageConnections, conn] })
+    setDraft(next)
     setSelected({ kind: 'group', id: conn.id })
+    setTemplateOpen(false)
   }
 
   const addModel = (groupId: string): void => {
@@ -142,6 +212,7 @@ export default function SettingsDialog() {
                 onClick={() => {
                   setTab(key)
                   setSelected(null)
+                  setTemplateOpen(false)
                 }}
               >
                 {label}
@@ -158,13 +229,31 @@ export default function SettingsDialog() {
           {/* ---------- 左:分组/模型树 ---------- */}
           {tab !== 'advanced' && (
             <aside className="flex w-[270px] shrink-0 flex-col border-r border-zinc-800">
-              <div className="p-2.5">
+              <div className="relative p-2.5">
                 <button
                   className="w-full rounded-lg border border-dashed border-zinc-600 py-1.5 text-xs text-zinc-300 hover:border-emerald-500 hover:text-emerald-300"
-                  onClick={addGroup}
+                  onClick={() => setTemplateOpen((o) => !o)}
                 >
                   + 新建分组(连接)
                 </button>
+                {templateOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setTemplateOpen(false)} />
+                    <div className="absolute left-2.5 right-2.5 top-full z-50 mt-1 rounded-xl border border-zinc-700 bg-[#1b1d23] p-1.5 shadow-2xl">
+                      <p className="px-2 pb-1 pt-0.5 text-[10px] text-zinc-500">选择模板,自动填入官方配置(API Key 自填)</p>
+                      {(isChat ? CHAT_TEMPLATES : IMAGE_TEMPLATES).map((tpl) => (
+                        <button
+                          key={tpl.key}
+                          className="w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-zinc-800"
+                          onClick={() => addGroup(tpl)}
+                        >
+                          <p className="text-xs text-zinc-200">{tpl.label}</p>
+                          <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">{tpl.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex-1 overflow-y-auto px-2 pb-3">
                 {connections.map((conn) => {

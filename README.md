@@ -22,7 +22,8 @@
 - **连接分组 + 模型列表**的设置模型:一个分组 = 一个服务连接(地址 + Key 共享),下挂多个模型;左右布局管理,支持从 `/models` 拉取列表一键添加(自动带出上下文/输出/模态/推理档位参数)
 - 语言模型:OpenAI 兼容 / Anthropic 双规范、上下文窗口(自动裁剪历史)、最大输出、多模态开关、思考模式与**推理强度档位(可增删的自定义列表)**
 - 生图模型:端点路径、张数/参考图/单图/提示词上限、quality、输出格式、input_fidelity;可选参数被端点拒绝时自动降级重试
-- **默认预置 DeepSeek 官方(deepseek-flash,只填 Key)+ GPT-Image-2(cf.api.fan)+ 智谱 CogView-4**
+- **默认预置 DeepSeek 官方(deepseek-flash,只填 Key)+ GPT-Image-2(cf.api.fan)+ 智谱 CogView-4**;新建分组时可选模板一键填入官方配置(DeepSeek / OpenCode Go / 智谱 / 自定义)
+- **OpenCode Go 网关兼容**:自动为 opencode.ai 请求附加稳定的 `x-opencode-session` 会话头与客户端标识(网关要求,缺失会被拒),OpenAI 与 Anthropic 双规范模板均可接入
 - API Key 系统安全存储加密,保存在本机;流式输出(SSE)、思考流(reasoning_content / thinking_delta)解析
 
 ## 安装

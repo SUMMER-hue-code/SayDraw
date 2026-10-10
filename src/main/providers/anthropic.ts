@@ -2,7 +2,7 @@
 // 与 chat.ts 的 chatCompletionStream 返回同构结果,由 streamChatCompletion 分发
 
 import type { ChatProfile } from '@shared/types'
-import { ApiError, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
+import { ApiError, gatewaySessionHeaders, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
 import type { ChatStreamResult, LLMMessage, LLMTool } from './chat'
 
 interface ToolUseAcc {
@@ -95,6 +95,7 @@ export async function anthropicChatStream(opts: {
   tools?: LLMTool[]
   timeoutMs: number
   signal?: AbortSignal
+  sessionKey?: string
   onDelta?: (text: string) => void
   onReasoningDelta?: (text: string) => void
 }): Promise<ChatStreamResult> {
@@ -133,7 +134,8 @@ export async function anthropicChatStream(opts: {
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': profile.apiKey,
-      'anthropic-version': '2023-06-01'
+      'anthropic-version': '2023-06-01',
+      ...gatewaySessionHeaders(profile.baseUrl, opts.sessionKey ?? 'default')
     },
     body: JSON.stringify(body),
     signal: withTimeout(signal, timeoutMs)
@@ -194,13 +196,14 @@ export async function anthropicChatStream(opts: {
 }
 
 /** Anthropic 连通性测试(非流式) */
-export async function anthropicPing(profile: ChatProfile, timeoutMs = 30_000): Promise<void> {
+export async function anthropicPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
   const res = await fetch(messagesUrl(profile.baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': profile.apiKey,
-      'anthropic-version': '2023-06-01'
+      'anthropic-version': '2023-06-01',
+      ...gatewaySessionHeaders(profile.baseUrl, sessionKey)
     },
     body: JSON.stringify({
       model: profile.model,

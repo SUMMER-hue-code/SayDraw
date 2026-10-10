@@ -2,7 +2,7 @@
 // DeepSeek 等服务会返回元数据(上下文窗口/输出上限/输入模态/推理档位),用于选模型时自动填参
 
 import type { ApiFormat, ModelInfo } from '@shared/types'
-import { ApiError, joinUrl, readErrorMessage, withTimeout } from './http'
+import { ApiError, gatewaySessionHeaders, joinUrl, readErrorMessage, withTimeout } from './http'
 
 interface RawModel {
   id?: string
@@ -35,6 +35,7 @@ export async function listModels(opts: {
   } else {
     url = joinUrl(baseUrl, '/models')
   }
+  Object.assign(headers, gatewaySessionHeaders(url, 'settings'))
 
   const res = await fetch(url, { headers, signal: withTimeout(undefined, timeoutMs) })
   if (!res.ok) await readErrorMessage(res)

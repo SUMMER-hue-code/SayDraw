@@ -1,5 +1,7 @@
 // HTTP 公共设施:URL 拼接、超时/取消、SSE 解析、错误归一化
 
+import { app } from 'electron'
+
 export class ApiError extends Error {
   status?: number
   body?: string
@@ -16,6 +18,23 @@ export function joinUrl(baseUrl: string, path: string): string {
   const base = baseUrl.trim().replace(/\/+$/, '')
   const suffix = path.startsWith('/') ? path : `/${path}`
   return `${base}${suffix}`
+}
+
+/**
+ * 网关会话头:OpenCode Go(opencode.ai)要求每个会话带稳定的 x-opencode-session,
+ * 缺失会被 400 拒绝("cannot be routed efficiently");顺带自定义 User-Agent 标识客户端。
+ * 其他服务不受影响(按 host 匹配才附加)。
+ */
+export function gatewaySessionHeaders(baseUrl: string, sessionKey: string): Record<string, string> {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    if (host === 'opencode.ai' || host.endsWith('.opencode.ai')) {
+      return { 'x-opencode-session': `saydraw-${sessionKey}`, 'User-Agent': `SayDraw/${app.getVersion()}` }
+    }
+  } catch {
+    // 非法 baseUrl 交给后续请求统一报错
+  }
+  return {}
 }
 
 /** 合并外部取消信号与超时 */

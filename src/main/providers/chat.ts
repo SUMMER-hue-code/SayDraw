@@ -1,7 +1,7 @@
 // OpenAI 兼容 /chat/completions:SSE 流式 + vision + tool calls
 
 import type { ChatProfile } from '@shared/types'
-import { ApiError, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
+import { ApiError, gatewaySessionHeaders, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
 
 // ---------- LLM 消息结构 ----------
 
@@ -51,6 +51,7 @@ export async function chatCompletionStream(opts: {
   tools?: LLMTool[]
   timeoutMs: number
   signal?: AbortSignal
+  sessionKey?: string
   onDelta?: (text: string) => void
   onReasoningDelta?: (text: string) => void
 }): Promise<ChatStreamResult> {
@@ -73,7 +74,8 @@ export async function chatCompletionStream(opts: {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${profile.apiKey}`
+      Authorization: `Bearer ${profile.apiKey}`,
+      ...gatewaySessionHeaders(profile.baseUrl, opts.sessionKey ?? 'default')
     },
     body: JSON.stringify(body),
     signal: withTimeout(signal, timeoutMs)
@@ -143,14 +145,15 @@ export async function chatCompletionStream(opts: {
 }
 
 /** 非流式小请求,用于设置页连通性测试(OpenAI 规范) */
-export async function chatPing(profile: ChatProfile, timeoutMs = 30_000): Promise<void> {
+export async function chatPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
   if (!profile.baseUrl || !profile.model) throw new ApiError('配置不完整(缺 baseUrl 或模型名)')
   if (!profile.apiKey) throw new ApiError('未配置 API Key')
   const res = await fetch(joinUrl(profile.baseUrl, '/chat/completions'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${profile.apiKey}`
+      Authorization: `Bearer ${profile.apiKey}`,
+      ...gatewaySessionHeaders(profile.baseUrl, sessionKey)
     },
     body: JSON.stringify({
       model: profile.model,
@@ -171,6 +174,7 @@ export interface StreamChatOpts {
   tools?: LLMTool[]
   timeoutMs: number
   signal?: AbortSignal
+  sessionKey?: string
   onDelta?: (text: string) => void
   onReasoningDelta?: (text: string) => void
 }
@@ -183,10 +187,10 @@ export async function streamChatCompletion(opts: StreamChatOpts): Promise<ChatSt
   return chatCompletionStream(opts)
 }
 
-export async function chatProviderPing(profile: ChatProfile, timeoutMs = 30_000): Promise<void> {
+export async function chatProviderPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
   if (profile.apiFormat === 'anthropic') {
     const { anthropicPing } = await import('./anthropic')
-    return anthropicPing(profile, timeoutMs)
+    return anthropicPing(profile, timeoutMs, sessionKey)
   }
-  return chatPing(profile, timeoutMs)
+  return chatPing(profile, timeoutMs, sessionKey)
 }

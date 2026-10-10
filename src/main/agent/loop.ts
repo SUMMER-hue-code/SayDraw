@@ -343,6 +343,7 @@ export async function runAgentTurn(sessionId: string, opts: RunOptions, emit: (e
         messages: llmMessages,
         tools: TOOL_DEFS,
         timeoutMs,
+        sessionKey: sessionId,
         signal: abort.signal,
         onDelta: (t) => {
           collector.pushText(t)
