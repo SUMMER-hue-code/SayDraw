@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
 import type {
   AgentEvent,
+  ApiFormat,
   AppSettings,
   ImageAsset,
   ModelInfo,
@@ -58,9 +59,9 @@ const api = {
     save: (settings: AppSettings): Promise<AppSettings> => ipcRenderer.invoke(IPC.SETTINGS_SAVE, settings),
     setActive: (kind: 'chat' | 'image', profileId: string | undefined): Promise<AppSettings> =>
       ipcRenderer.invoke(IPC.SETTINGS_SET_ACTIVE, kind, profileId),
-    listModels: (baseUrl: string, apiKey: string, apiFormat?: 'openai' | 'anthropic'): Promise<ModelInfo[]> =>
+    listModels: (baseUrl: string, apiKey: string, apiFormat?: ApiFormat): Promise<ModelInfo[]> =>
       ipcRenderer.invoke(IPC.SETTINGS_LIST_MODELS, baseUrl, apiKey, apiFormat),
-    testChat: (profile: { baseUrl: string; apiKey: string; model: string; apiFormat?: 'openai' | 'anthropic' }): Promise<TestResult> =>
+    testChat: (profile: { baseUrl: string; apiKey: string; model: string; apiFormat?: ApiFormat; chatPath?: string }): Promise<TestResult> =>
       ipcRenderer.invoke(IPC.SETTINGS_TEST_CHAT, profile),
     testImage: (profile: { baseUrl: string; apiKey: string; model: string; genPath?: string }): Promise<TestResult> =>
       ipcRenderer.invoke(IPC.SETTINGS_TEST_IMAGE, profile)

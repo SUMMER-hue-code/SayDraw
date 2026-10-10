@@ -37,6 +37,19 @@ export function gatewaySessionHeaders(baseUrl: string, sessionKey: string): Reco
   return {}
 }
 
+/**
+ * 规范端点 URL:分组地址是基础地址,按规范拼请求地址。
+ * 显式路径(chatPath)优先;否则基础地址已含版本段(/v1、/v4 等)直接拼相对路径,
+ * 不含则补 /v1 前缀 —— 如 cf.api.fan + chat/completions → /v1/chat/completions,
+ * api.openai.com/v1 + chat/completions → /v1/chat/completions。
+ */
+export function endpointUrl(baseUrl: string, explicitPath: string | undefined, relPath: string): string {
+  const base = baseUrl.trim().replace(/\/+$/, '')
+  const rel = relPath.replace(/^\/+/, '')
+  if (explicitPath?.trim()) return joinUrl(base, explicitPath.trim())
+  return /\/v\d+$/.test(base) ? `${base}/${rel}` : `${base}/v1/${rel}`
+}
+
 /** 合并外部取消信号与超时 */
 export function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
   return AbortSignal.any([signal ?? new AbortController().signal, AbortSignal.timeout(timeoutMs)])

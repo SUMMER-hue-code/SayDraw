@@ -5,6 +5,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { IPC } from '@shared/ipc'
 import type {
+  ApiFormat,
   AgentEvent,
   AppSettings,
   ImageAsset,
@@ -182,7 +183,7 @@ export function registerIpc(): void {
 
   ipcMain.handle(
     IPC.SETTINGS_LIST_MODELS,
-    (_e, baseUrl: string, apiKey: string, apiFormat?: 'openai' | 'anthropic'): Promise<ModelInfo[]> =>
+    (_e, baseUrl: string, apiKey: string, apiFormat?: ApiFormat): Promise<ModelInfo[]> =>
       listModels({ baseUrl, apiKey, apiFormat })
   )
 
@@ -190,7 +191,7 @@ export function registerIpc(): void {
     IPC.SETTINGS_TEST_CHAT,
     async (
       _e,
-      profile: { baseUrl: string; apiKey: string; model: string; apiFormat?: 'openai' | 'anthropic'; maxOutputTokens?: number }
+      profile: { baseUrl: string; apiKey: string; model: string; apiFormat?: ApiFormat; chatPath?: string; maxOutputTokens?: number }
     ): Promise<TestResult> => {
       try {
         await chatProviderPing({ ...profile, id: 'test', name: 'test' })

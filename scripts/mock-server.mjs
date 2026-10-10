@@ -158,10 +158,46 @@ function anthropicStream(req, res, body) {
 
 // ---------- HTTP 服务 ----------
 
+// OpenAI Responses 规范:首轮回工具调用,见到 function_call_output 后回文本
+function decideResponses(body) {
+  const items = body.input ?? []
+  const hasOutput = items.some((i) => i.type === 'function_call_output')
+  if (!hasOutput) {
+    return { kind: 'tool', name: 'update_brief', args: { subject: '远山', style: '水墨画', aspectRatio: '16:9' } }
+  }
+  return { kind: 'text', text: 'Responses 链路验证成功:需求已记录(远山·水墨·16:9)。' }
+}
+
+function responsesStream(req, res, body) {
+  const decision = decideResponses(body)
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' })
+  const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`)
+  send({ type: 'response.created', response: { id: `resp_${Date.now()}` } })
+  if (decision.kind === 'text') {
+    send({ type: 'response.output_item.added', output_index: 0, item: { id: 'msg_0', type: 'message', role: 'assistant' } })
+    for (const piece of decision.text.match(/.{1,8}/gs) ?? []) {
+      send({ type: 'response.output_text.delta', item_id: 'msg_0', output_index: 0, delta: piece })
+    }
+    send({ type: 'response.output_text.done', item_id: 'msg_0', text: decision.text })
+  } else {
+    const fcId = 'fc_0'
+    send({ type: 'response.output_item.added', output_index: 0, item: { id: fcId, type: 'function_call', call_id: `call_${Date.now()}`, name: decision.name, arguments: '' } })
+    for (const piece of JSON.stringify(decision.args).match(/.{1,10}/gs) ?? []) {
+      send({ type: 'response.function_call_arguments.delta', item_id: fcId, output_index: 0, delta: piece })
+    }
+    send({ type: 'response.function_call_arguments.done', item_id: fcId, arguments: JSON.stringify(decision.args) })
+    send({ type: 'response.output_item.done', output_index: 0, item: { id: fcId, type: 'function_call' } })
+  }
+  send({ type: 'response.completed', response: { id: `resp_${Date.now()}`, usage: {} } })
+  res.end()
+}
+
 const server = http.createServer(async (req, res) => {
   const url = req.url ?? ''
   try {
-    if (req.method === 'POST' && url.endsWith('/chat/completions')) {
+    if (req.method === 'POST' && url.endsWith('/responses')) {
+      responsesStream(req, res, await readBody(req))
+    } else if (req.method === 'POST' && url.endsWith('/chat/completions')) {
       openaiChatStream(req, res, await readBody(req))
     } else if (req.method === 'POST' && url.endsWith('/messages')) {
       anthropicStream(req, res, await readBody(req))

@@ -1,7 +1,7 @@
 // OpenAI 兼容 /chat/completions:SSE 流式 + vision + tool calls
 
 import type { ChatProfile } from '@shared/types'
-import { ApiError, gatewaySessionHeaders, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
+import { ApiError, endpointUrl, gatewaySessionHeaders, readErrorMessage, sseDataChunks, withTimeout } from './http'
 
 // ---------- LLM 消息结构 ----------
 
@@ -70,7 +70,7 @@ export async function chatCompletionStream(opts: {
   if (profile.reasoningEffort) body.reasoning_effort = profile.reasoningEffort
   if (tools?.length) body.tools = tools
 
-  const res = await fetch(joinUrl(profile.baseUrl, '/chat/completions'), {
+  const res = await fetch(endpointUrl(profile.baseUrl, profile.chatPath, 'chat/completions'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export async function chatCompletionStream(opts: {
 export async function chatPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
   if (!profile.baseUrl || !profile.model) throw new ApiError('配置不完整(缺 baseUrl 或模型名)')
   if (!profile.apiKey) throw new ApiError('未配置 API Key')
-  const res = await fetch(joinUrl(profile.baseUrl, '/chat/completions'), {
+  const res = await fetch(endpointUrl(profile.baseUrl, profile.chatPath, 'chat/completions'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -180,6 +180,10 @@ export interface StreamChatOpts {
 }
 
 export async function streamChatCompletion(opts: StreamChatOpts): Promise<ChatStreamResult> {
+  if (opts.profile.apiFormat === 'openai-responses') {
+    const { responsesChatStream } = await import('./responses')
+    return responsesChatStream(opts)
+  }
   if (opts.profile.apiFormat === 'anthropic') {
     const { anthropicChatStream } = await import('./anthropic')
     return anthropicChatStream(opts)
@@ -188,6 +192,10 @@ export async function streamChatCompletion(opts: StreamChatOpts): Promise<ChatSt
 }
 
 export async function chatProviderPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
+  if (profile.apiFormat === 'openai-responses') {
+    const { responsesPing } = await import('./responses')
+    return responsesPing(profile, timeoutMs, sessionKey)
+  }
   if (profile.apiFormat === 'anthropic') {
     const { anthropicPing } = await import('./anthropic')
     return anthropicPing(profile, timeoutMs, sessionKey)

@@ -136,7 +136,7 @@ export const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
 // ---------- 设置(v3:连接分组 + 模型列表) ----------
 
 /** 请求规范 */
-export type ApiFormat = 'openai' | 'anthropic'
+export type ApiFormat = 'openai' | 'anthropic' | 'openai-responses'
 
 /** 连接分组:一个服务的接入点(地址+密钥),下辖若干模型 */
 export interface ModelConnection {
@@ -145,7 +145,7 @@ export interface ModelConnection {
   /** 含版本路径,如 https://api.deepseek.com 或 https://open.bigmodel.cn/api/paas/v4 */
   baseUrl: string
   apiKey: string
-  /** 请求规范(语言模型连接用),默认 openai 兼容 */
+  /** 请求规范(语言模型连接的默认规范;模型可单独覆盖),默认 openai 兼容 */
   apiFormat?: ApiFormat
   /** 图片连接:生成端点,默认 /images/generations */
   genPath?: string
@@ -161,6 +161,10 @@ export interface ChatModel {
   name: string
   /** 模型 ID(发给服务的 model 字段) */
   model: string
+  /** 请求规范覆盖(未设置=跟随分组);同一分组可混挂不同规范的模型(中转站场景) */
+  apiFormat?: ApiFormat
+  /** 请求地址路径覆盖(未设置=按规范与 Base URL 自动拼接),如 /v1/responses */
+  chatPath?: string
   /** 上下文窗口(token),用于历史裁剪;默认 65536 */
   contextWindow?: number
   /** 最大输出 token;默认 8192 */
@@ -221,6 +225,8 @@ export interface ChatProfile {
   apiKey: string
   model: string
   apiFormat?: ApiFormat
+  /** 请求地址路径覆盖(模型级;未设置按规范默认拼接) */
+  chatPath?: string
   contextWindow?: number
   maxOutputTokens?: number
   supportsVision?: boolean

@@ -2,7 +2,7 @@
 // 与 chat.ts 的 chatCompletionStream 返回同构结果,由 streamChatCompletion 分发
 
 import type { ChatProfile } from '@shared/types'
-import { ApiError, gatewaySessionHeaders, joinUrl, readErrorMessage, sseDataChunks, withTimeout } from './http'
+import { ApiError, endpointUrl, gatewaySessionHeaders, readErrorMessage, sseDataChunks, withTimeout } from './http'
 import type { ChatStreamResult, LLMMessage, LLMTool } from './chat'
 
 interface ToolUseAcc {
@@ -84,9 +84,8 @@ function convertMessages(messages: LLMMessage[]): { system: string; messages: Co
   return { system: systemTexts.join('\n\n'), messages: out }
 }
 
-function messagesUrl(baseUrl: string): string {
-  const base = baseUrl.trim().replace(/\/+$/, '')
-  return base.endsWith('/v1') ? `${base}/messages` : `${base}/v1/messages`
+function messagesUrl(baseUrl: string, chatPath?: string): string {
+  return endpointUrl(baseUrl, chatPath, 'messages')
 }
 
 export async function anthropicChatStream(opts: {
@@ -129,7 +128,7 @@ export async function anthropicChatStream(opts: {
     body.tools = tools.map((t) => ({ name: t.function.name, description: t.function.description, input_schema: t.function.parameters }))
   }
 
-  const res = await fetch(messagesUrl(profile.baseUrl), {
+  const res = await fetch(messagesUrl(profile.baseUrl, profile.chatPath), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -197,7 +196,7 @@ export async function anthropicChatStream(opts: {
 
 /** Anthropic 连通性测试(非流式) */
 export async function anthropicPing(profile: ChatProfile, timeoutMs = 30_000, sessionKey = 'settings-test'): Promise<void> {
-  const res = await fetch(messagesUrl(profile.baseUrl), {
+  const res = await fetch(messagesUrl(profile.baseUrl, profile.chatPath), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

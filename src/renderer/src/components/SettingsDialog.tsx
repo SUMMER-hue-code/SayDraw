@@ -14,6 +14,20 @@ function newId(): string {
   return crypto.randomUUID()
 }
 
+const FORMAT_LABELS: Record<ApiFormat, string> = {
+  openai: 'OpenAI 兼容',
+  anthropic: 'Anthropic',
+  'openai-responses': 'OpenAI Responses'
+}
+
+/** 实际请求 URL 预览(与主进程 endpointUrl 同规则:显式路径优先;地址含版本段直拼,否则补 /v1) */
+function chatEndpointPreview(baseUrl: string, chatPath: string | undefined, format: ApiFormat | undefined): string {
+  const rel = format === 'anthropic' ? 'messages' : format === 'openai-responses' ? 'responses' : 'chat/completions'
+  const base = baseUrl.trim().replace(/\/+$/, '')
+  if (chatPath?.trim()) return `${base}/${chatPath.trim().replace(/^\/+/, '')}`
+  return /\/v\d+$/.test(base) ? `${base}/${rel}` : `${base}/v1/${rel}`
+}
+
 const inputCls = 'w-full rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600'
 
 // 新建分组模板:预填官方连接配置,省去手查文档
@@ -39,6 +53,12 @@ const CHAT_TEMPLATES: ConnTemplate[] = [
     label: 'OpenCode Go',
     desc: '订阅网关 · GLM/Kimi/DeepSeek/Qwen 等;自动带会话头;识图仅 deepseek-v4-flash-vision-exp',
     conn: { name: 'OpenCode Go', baseUrl: 'https://opencode.ai/zen/go/v1', apiKey: '', apiFormat: 'openai' }
+  },
+  {
+    key: 'packyapi',
+    label: 'PackyAPI 中转 (cf.api.fan)',
+    desc: '一个 Key 三规范:/v1/responses · /v1/messages · /v1/chat/completions;拉取模型后按模型选规范',
+    conn: { name: 'PackyAPI (cf.api.fan)', baseUrl: 'https://cf.api.fan', apiKey: '', apiFormat: 'openai' }
   },
   {
     key: 'opencode-anthropic',
@@ -427,10 +447,11 @@ function GroupPanel(props: {
           <input type="password" value={conn.apiKey} placeholder="sk-…(令牌分组须选 sora 的服务请留意)" onChange={(e) => update({ apiKey: e.target.value })} className={inputCls} />
         </Field>
         {isChat ? (
-          <Field label="请求规范">
+          <Field label="默认请求规范" hint="分组下模型的默认规范;模型可单独覆盖(中转站一 Key 多规范场景)">
             <select value={conn.apiFormat ?? 'openai'} onChange={(e) => update({ apiFormat: e.target.value as ApiFormat })} className={inputCls}>
-              <option value="openai">OpenAI 兼容</option>
-              <option value="anthropic">Anthropic(Claude)</option>
+              <option value="openai">OpenAI 兼容(/chat/completions)</option>
+              <option value="openai-responses">OpenAI Responses(/responses)</option>
+              <option value="anthropic">Anthropic(/v1/messages)</option>
             </select>
           </Field>
         ) : (
@@ -515,7 +536,11 @@ function ModelPanel(props: { draft: AppSettings; patch: (p: Partial<AppSettings>
     setTest(null)
     const shared = { baseUrl: conn.baseUrl, apiKey: conn.apiKey, model: model.model }
     const p = isChat
-      ? window.api.settings.testChat({ ...shared, apiFormat: conn.apiFormat as ApiFormat })
+      ? window.api.settings.testChat({
+          ...shared,
+          apiFormat: ((model as ChatModel).apiFormat ?? conn.apiFormat) as ApiFormat,
+          chatPath: (model as ChatModel).chatPath
+        })
       : window.api.settings.testImage({ ...shared, genPath: conn.genPath })
     p.then((r) => {
       setTest(r)
@@ -596,6 +621,34 @@ function ModelPanel(props: { draft: AppSettings; patch: (p: Partial<AppSettings>
         <Field label="展示名">
           <input value={model.name} onChange={(e) => update({ name: e.target.value })} className={inputCls} />
         </Field>
+
+        {isChat && (
+          <div className="col-span-2 grid grid-cols-2 gap-3">
+            <Field label="请求规范" hint="中转站同一分组可挂不同规范的模型;不选则跟随分组">
+              <select
+                value={(model as ChatModel).apiFormat ?? ''}
+                onChange={(e) => update({ apiFormat: (e.target.value || undefined) as ApiFormat | undefined })}
+                className={inputCls}
+              >
+                <option value="">跟随分组({FORMAT_LABELS[(conn.apiFormat as ApiFormat) ?? 'openai']})</option>
+                <option value="openai">openai · /chat/completions</option>
+                <option value="openai-responses">openai-responses · /responses</option>
+                <option value="anthropic">anthropic · /v1/messages</option>
+              </select>
+            </Field>
+            <Field label="请求地址(可选)" hint="默认按规范与 Base URL 自动拼接;服务端点特殊时填实际路径,如 /v1/responses">
+              <input
+                value={(model as ChatModel).chatPath ?? ''}
+                placeholder="自动拼接"
+                onChange={(e) => update({ chatPath: e.target.value.trim() || undefined })}
+                className={inputCls}
+              />
+            </Field>
+            <p className="col-span-2 -mt-1 break-all text-[10px] text-zinc-600">
+              实际请求:{chatEndpointPreview(conn.baseUrl, (model as ChatModel).chatPath, ((model as ChatModel).apiFormat as ApiFormat) ?? (conn.apiFormat as ApiFormat))}
+            </p>
+          </div>
+        )}
 
         {isChat ? <ChatModelFields model={model as ChatModel} update={update} /> : <ImageModelFields model={model as ImageModel} update={update} />}
       </div>
