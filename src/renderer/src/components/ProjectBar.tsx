@@ -74,7 +74,7 @@ export default function ProjectBar() {
         </>
       ) : (
         <button
-          className="flex items-center gap-1.5 rounded-full border border-dashed border-amber-500/60 px-2.5 py-1 text-amber-400 hover:border-amber-400"
+          className="flex items-center gap-1.5 rounded-full border border-dashed border-emerald-500/60 px-2.5 py-1 text-emerald-400 hover:border-emerald-400"
           title="必须选择工作目录后才能对话:图片将存入其中,并自动创建 素材/ 与 生成图片/"
           onClick={() =>
             void pick(session.id).then((r) => {
