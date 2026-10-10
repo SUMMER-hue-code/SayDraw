@@ -1,6 +1,6 @@
 {
   "name": "saydraw",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "AIImage - 对话式图片创作 Agent(Windows 桌面端)",
   "main": "./out/main/index.js",
   "author": "AIImage",
