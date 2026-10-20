@@ -129,6 +129,9 @@ export function registerIpc(): void {
       saveDataUrlAsset({ sessionId, dataUrl, kind, baseAssetId, label })
   )
 
+  /** 选用候选图:草稿 → 正式版本链成员 */
+  ipcMain.handle(IPC.ASSETS_PROMOTE, (_e, assetId: string): ImageAsset | undefined => db.promoteAsset(assetId))
+
   /** 图片右键菜单:复制到剪贴板 / 另存为 */
   ipcMain.handle(IPC.ASSETS_CONTEXT_MENU, (e: IpcMainInvokeEvent, assetId: string): boolean => {
     const asset = db.asset(assetId)

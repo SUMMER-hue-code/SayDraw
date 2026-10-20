@@ -147,6 +147,17 @@ class DB {
       .sort((a, b) => a.createdAt - b.createdAt)
   }
 
+  /** 选用候选图:从草稿转为正式版本链成员(返回更新后的资产) */
+  promoteAsset(id: string): ImageAsset | undefined {
+    const asset = this.asset(id)
+    if (!asset) return undefined
+    if (asset.draft) {
+      asset.draft = false
+      this.save()
+    }
+    return asset
+  }
+
   // ---------- 需求规格 ----------
 
   brief(sessionId: string): ImageBrief {

@@ -40,7 +40,13 @@ export default function VersionStrip() {
             <button
               key={asset.id}
               className={`group relative overflow-hidden rounded-lg border ${
-                asset.id === baseAssetId ? 'border-emerald-500 ring-1 ring-emerald-500/60' : 'border-zinc-700/60 hover:border-zinc-500'
+                asset.draft
+                  ? asset.id === baseAssetId
+                    ? 'border-dashed border-amber-400 ring-1 ring-amber-400/60'
+                    : 'border-dashed border-amber-500/50 hover:border-amber-400'
+                  : asset.id === baseAssetId
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/60'
+                    : 'border-zinc-700/60 hover:border-zinc-500'
               }`}
               onClick={() => setBase(asset.id)}
               onDoubleClick={() => useViewerStore.getState().open(asset.id)}
@@ -50,12 +56,17 @@ export default function VersionStrip() {
               }}
               title={`${asset.kind === 'edited' ? '编辑' : asset.kind === 'generated' ? '生成' : '上传'}${
                 asset.parentId ? '(基于上一版)' : ''
-              }\n${new Date(asset.createdAt).toLocaleTimeString()}`}
+              }${asset.draft ? ' · 待选候选' : ''}\n${new Date(asset.createdAt).toLocaleTimeString()}`}
             >
               <img src={assetUrl(asset.sessionId, asset.fileName)} alt={asset.id} className="aspect-square w-full object-cover" />
               <span className="absolute left-1 top-1 rounded bg-black/60 px-1 text-[9px] leading-4 text-zinc-200">
                 {KIND_ICON[asset.kind]}
               </span>
+              {asset.draft && (
+                <span className="absolute right-1 top-1 rounded bg-amber-400/95 px-1 text-[9px] leading-4 font-medium text-black">
+                  待选
+                </span>
+              )}
             </button>
           ))}
         </div>

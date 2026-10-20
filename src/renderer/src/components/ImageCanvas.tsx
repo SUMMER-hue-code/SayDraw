@@ -15,6 +15,7 @@ export default function ImageCanvas() {
   const clearStrokes = useCanvasStore((s) => s.clearStrokes)
   const maskDataUrl = useCanvasStore((s) => s.maskDataUrl)
   const setEditorOpen = useCanvasStore((s) => s.setEditorOpen)
+  const promote = useChatStore((s) => s.promote)
 
   const asset = baseAssetId ? assets[baseAssetId] : null
 
@@ -37,6 +38,15 @@ export default function ImageCanvas() {
     <section className="rounded-xl border border-zinc-800 bg-[#15171c]">
       <header className="flex flex-wrap items-center gap-2 border-b border-zinc-800/80 px-3 py-2">
         <h2 className="mr-auto text-xs font-semibold tracking-wide text-zinc-300">🖼 画布</h2>
+        {asset.draft && (
+          <button
+            className="rounded-lg bg-amber-400 px-2.5 py-1 text-[11px] font-medium text-black hover:bg-amber-300"
+            title="把这张候选设为正式版本(其余同批候选保持待选)"
+            onClick={() => void promote(asset.id)}
+          >
+            ✓ 选用这张
+          </button>
+        )}
         {brushMode && maskDataUrl && (
           <button className="rounded px-1.5 py-0.5 text-[11px] text-zinc-400 hover:bg-zinc-800" onClick={clearStrokes} disabled={!strokes.length}>
             清除蒙版

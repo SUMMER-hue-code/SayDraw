@@ -34,6 +34,8 @@ interface ChatStore {
   reset: () => void
   send: (text: string, assetIds?: string[], confirmBrief?: boolean, fileTexts?: { name: string; content: string }[]) => Promise<void>
   cancel: () => Promise<void>
+  /** 选用候选图:草稿 → 正式版本链 */
+  promote: (assetId: string) => Promise<void>
   handleEvent: (ev: AgentEvent) => void
 }
 
@@ -115,6 +117,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   cancel: async () => {
     const { sessionId } = get()
     if (sessionId) await window.api.chat.cancel(sessionId)
+  },
+
+  promote: async (assetId) => {
+    const updated = await window.api.assets.promote(assetId)
+    if (!updated) return
+    set((s) => (s.assets[updated.id] ? { assets: { ...s.assets, [updated.id]: updated } } : {}))
   },
 
   handleEvent: (ev) => {

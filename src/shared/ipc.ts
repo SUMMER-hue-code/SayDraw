@@ -16,6 +16,7 @@ export const IPC = {
   CHAT_ANSWER_QUESTION: 'chat:answer-question',
   ASSETS_UPLOAD: 'assets:upload',
   ASSETS_CONTEXT_MENU: 'assets:context-menu',
+  ASSETS_PROMOTE: 'assets:promote',
 
   /** 应用元信息(版本号等) */
   APP_INFO: 'app:info',

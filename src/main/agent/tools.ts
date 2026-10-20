@@ -9,7 +9,8 @@ import { BRIEF_SLOTS } from '@shared/types'
 import { getDb } from '../store/db'
 import { getSettings } from '../store/settings'
 import { readAssetBuffer, saveBufferAsset } from '../store/assets'
-import { editImage, generateImages, guessMime, parseExplicitSize } from '../providers/images'
+import { describeDropped, editImage, generateImages, guessMime, parseExplicitSize } from '../providers/images'
+import type { GeneratedImages } from '../providers/images'
 import type { LLMTool } from '../providers/chat'
 import { errText } from '../providers/http'
 
@@ -42,14 +43,23 @@ export const TOOL_DEFS: LLMTool[] = [
     function: {
       name: 'generate_image',
       description:
-        '文生图,支持参考图融合。必须等需求规格 confirmed 为 true 之后才能调用。prompt 要融合需求规格全部有效信息,具体、有画面感。当用户提供了多张参考图(如"把三张图里的角色放到同一张图")时,必须通过 referenceAssetIds 传入这些图片,模型会将参考图中的元素融入新图。',
+        '文生图,支持参考图融合。必须等需求规格 confirmed 为 true 之后才能调用。prompt 要融合需求规格全部有效信息,具体、有画面感。当用户提供了多张参考图(如"把三张图里的角色放到同一张图")时,必须通过 referenceAssetIds 传入这些图片,模型会将参考图中的元素融入新图。首图或大改时建议用 variants=3 一次出 3 张候选,再让用户挑选,命中率更高。',
       parameters: {
         type: 'object',
         properties: {
           prompt: { type: 'string', description: '完整的图像生成提示词;带参考图时应说明各参考图元素如何安排' },
           aspectRatio: { type: 'string', description: '画面比例,默认取需求规格中的值' },
           size: { type: 'string', description: '输出分辨率 WxH(如 2048x2048 / 3840x2160),优先于比例;生图前分辨率必须明确' },
-          n: { type: 'number', description: '生成张数 1-4,默认 1' },
+          n: { type: 'number', description: '单次生成张数 1-4,默认 1' },
+          variants: {
+            type: 'number',
+            description: '候选数量 2-4:一次生成多张不同候选供用户挑选(首图/大改时推荐 3);候选在用户选用前不算正式版本'
+          },
+          quality: {
+            type: 'string',
+            enum: ['auto', 'low', 'medium', 'high'],
+            description: '画质档位,覆盖模型默认设置;细节要求高时用 high(更慢更贵),不确定用 auto'
+          },
           referenceAssetIds: {
             type: 'array',
             items: { type: 'string' },
@@ -77,7 +87,12 @@ export const TOOL_DEFS: LLMTool[] = [
           instruction: { type: 'string', description: '编辑指令:完整描述修改/融合后的画面效果' },
           maskAssetId: { type: 'string', description: '蒙版图片 ID(用户涂抹的区域),仅单源图时可选' },
           aspectRatio: { type: 'string', description: '输出比例,默认与源图一致' },
-          size: { type: 'string', description: '输出分辨率 WxH(如 2048x2048),可选;默认跟随需求规格或源图' }
+          size: { type: 'string', description: '输出分辨率 WxH(如 2048x2048),可选;默认跟随需求规格或源图' },
+          quality: {
+            type: 'string',
+            enum: ['auto', 'low', 'medium', 'high'],
+            description: '画质档位,覆盖模型默认设置;细节要求高时用 high(更慢更贵),不确定用 auto'
+          }
         },
         required: ['assetIds', 'instruction']
       }
@@ -299,6 +314,12 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
   // 部分服务单次仅支持 1 张(如 gpt-image-2),按配置上限钳制
   const maxN = profile.maxN && profile.maxN > 0 ? profile.maxN : 4
   const n = Math.min(maxN, Math.max(1, Number(args.n ?? 1) || 1))
+  // 候选数量:一次出多张供用户挑选;端点只支持单张时串行补足
+  const rawVariants = Number(args.variants ?? 1)
+  const variants = Number.isFinite(rawVariants) ? Math.min(4, Math.max(1, Math.trunc(rawVariants))) : 1
+  // 画质档位:auto = 跟随模型配置
+  const qualityArg = String(args.quality ?? '').trim()
+  const quality = qualityArg && qualityArg !== 'auto' ? qualityArg : undefined
   const maxRefs = profile.maxReferenceImages ?? 16
   const maxPrompt = profile.maxPromptChars ?? 32_000
 
@@ -316,28 +337,50 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
     return { ok: false, text: `参考图 ${oversized.id} 超过单图上限 ${profile.maxImageMB ?? 25}MB,请先缩小或换图。`, assetIds: [] }
   }
 
-  let buffers: Buffer[]
-  if (references.length > 0) {
-    // eslint-disable-next-line no-await-in-loop
-    buffers = await editImage({
-      profile,
-      prompt,
-      images: references.map((a) => ({ buffer: readAssetBuffer(a), mime: a.mime })),
-      ratio,
-      size: size ?? undefined,
-      timeoutMs: getSettings().load().imageTimeoutMs,
-      signal: ctx.signal
-    })
+  const total = variants > 1 ? variants : n
+  const isDraft = total > 1
+  const batchId = isDraft ? `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}` : undefined
+  const timeoutMs = getSettings().load().imageTimeoutMs
+
+  const runOnce = async (count: number): Promise<GeneratedImages> =>
+    references.length > 0
+      ? editImage({
+          profile,
+          prompt,
+          images: references.map((a) => ({ buffer: readAssetBuffer(a), mime: a.mime })),
+          ratio,
+          size: size ?? undefined,
+          quality,
+          timeoutMs,
+          signal: ctx.signal
+        })
+      : generateImages({
+          profile,
+          prompt,
+          ratio,
+          size: size ?? undefined,
+          n: count,
+          quality,
+          timeoutMs,
+          signal: ctx.signal
+        })
+
+  const results: GeneratedImages[] = []
+  if (references.length === 0 && maxN >= total) {
+    // 端点支持一次多张:一次调用出全部候选,少一轮等待
+    results.push(await runOnce(total))
   } else {
-    buffers = await generateImages({
-      profile,
-      prompt,
-      ratio,
-      size: size ?? undefined,
-      n,
-      timeoutMs: getSettings().load().imageTimeoutMs,
-      signal: ctx.signal
-    })
+    // 端点只支持单张或带参考图:串行补足;用户取消立即停止
+    for (let i = 0; i < total; i++) {
+      if (ctx.signal?.aborted) break
+      // eslint-disable-next-line no-await-in-loop
+      results.push(await runOnce(1))
+    }
+  }
+
+  const buffers = results.flatMap((r) => r.buffers)
+  if (!buffers.length) {
+    return { ok: false, text: '生成被取消,或接口未返回任何图片。', assetIds: [] }
   }
 
   const assetIds: string[] = []
@@ -347,14 +390,35 @@ export async function execGenerateImage(ctx: ToolCtx, args: Record<string, unkno
       buffer,
       mime: guessMime(buffer),
       kind: 'generated',
-      prompt
+      prompt,
+      draft: isDraft || undefined,
+      batchId
     })
     assetIds.push(asset.id)
     ctx.emit({ type: 'asset-added', sessionId: ctx.sessionId, asset })
   }
-  const refNote = references.length > 0 ? `已融合 ${references.length} 张参考图` : `分辨率 ${size ?? ratio ?? '1:1 默认'}`
-  const nNote = n > 1 ? `${assetIds.length} 张` : '1 张'
-  return { ok: true, text: `已生成 ${nNote}图片:${assetIds.join(', ')}(${refNote})。请向用户展示并说明。`, assetIds }
+
+  const dropped = Array.from(new Set(results.flatMap((r) => r.dropped)))
+  const requestedSize = results[0]?.requestedSize
+  const actualSize = results[0]?.actualSize
+  const parts: string[] = [
+    isDraft ? `已生成 ${assetIds.length} 张候选图:${assetIds.join(', ')}(同批次)` : `已生成图片:${assetIds.join(', ')}`
+  ]
+  if (references.length > 0) parts.push(`已融合 ${references.length} 张参考图`)
+  if (requestedSize || actualSize) {
+    parts.push(
+      requestedSize && actualSize && requestedSize !== actualSize
+        ? `请求 ${requestedSize},实际返回 ${actualSize}`
+        : `尺寸 ${actualSize ?? requestedSize}`
+    )
+  }
+  const dropNote = describeDropped(dropped)
+  if (dropNote) parts.push(`${dropNote}(画质可能受影响,请如实告知用户)`)
+  if (isDraft) {
+    parts.push('候选图尚未进入版本链:请用 ask_user 让用户挑选(2-4 个选项,推荐项按你的专业判断),选定后以该图为源继续')
+  }
+  parts.push('请向用户简短说明结果与下一步建议')
+  return { ok: true, text: `${parts.join(';')}。`, assetIds }
 }
 
 // ---------- edit_image ----------
@@ -397,20 +461,22 @@ export async function execEditImage(ctx: ToolCtx, args: Record<string, unknown>)
     mask = readAssetBuffer(maskAsset)
   }
 
-  const buffers = await editImage({
+  const qualityArg = String(args.quality ?? '').trim()
+  const result = await editImage({
     profile,
     prompt: instruction,
     images: sources.map((a) => ({ buffer: readAssetBuffer(a), mime: a.mime })),
     mask,
     ratio: args.aspectRatio ? String(args.aspectRatio) : undefined,
     size: parseExplicitSize(String(args.size ?? '')) ?? undefined,
+    quality: qualityArg && qualityArg !== 'auto' ? qualityArg : undefined,
     timeoutMs: getSettings().load().imageTimeoutMs,
     signal: ctx.signal
   })
 
   const primary = sources[0]
   const assetIds: string[] = []
-  for (const buffer of buffers) {
+  for (const buffer of result.buffers) {
     const asset: ImageAsset = saveBufferAsset({
       sessionId: ctx.sessionId,
       buffer,
@@ -423,7 +489,14 @@ export async function execEditImage(ctx: ToolCtx, args: Record<string, unknown>)
     ctx.emit({ type: 'asset-added', sessionId: ctx.sessionId, asset })
   }
   const srcNote = sources.length > 1 ? `融合 ${sources.length} 张源图(${sources.map((s) => s.id).join(' + ')})` : `基于 ${primary.id}`
-  return { ok: true, text: `已完成编辑,${srcNote} 生成 ${assetIds.length} 张新图:${assetIds.join(', ')}。请向用户展示结果。`, assetIds }
+  const sizeNote = result.actualSize ? `;实际 ${result.actualSize}` : ''
+  const dropNote = describeDropped(result.dropped)
+  const degradeNote = dropNote ? `;${dropNote}` : ''
+  return {
+    ok: true,
+    text: `已完成编辑,${srcNote} 生成 ${assetIds.length} 张新图:${assetIds.join(', ')}${sizeNote}${degradeNote}。请向用户展示结果。`,
+    assetIds
+  }
 }
 
 // ---------- 文件系统工具 ----------

@@ -10,6 +10,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "verify:image": "node --no-warnings --experimental-strip-types scripts/verify-image-fallback.mjs",
     "start": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --win"
   },

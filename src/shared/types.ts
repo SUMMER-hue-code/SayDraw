@@ -32,6 +32,10 @@ export interface ImageAsset {
   height?: number
   /** 生成/编辑此图时使用的提示词 */
   prompt?: string
+  /** 候选图:一次生成多张供挑选,用户"选用"前不进入正式版本链 */
+  draft?: boolean
+  /** 同批候选的批次标识(一次多候选生成共享) */
+  batchId?: string
   createdAt: number
 }
 

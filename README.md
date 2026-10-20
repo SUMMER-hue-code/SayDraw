@@ -14,6 +14,9 @@
 - **文件系统工具**:浏览目录 / 读写编辑文件 / 移动复制 / 导入本机图片;write_file、edit_file、process_image(本地格式转换/压缩/缩放,零额度消耗)
 - **强制工作目录**(工程文件夹):自动创建 `生成图片/`(全部产出)、`素材/`(参考资产,Agent 可浏览识别并给创作建议)、`要求.md`、`需求规格.md`(随对话自动同步)
 - **生图**:文生图、图生图编辑、蒙版局部重绘、**多参考图融合**(最多 16 张、单张 25MB、提示词 32000 字符,可在设置调整)
+- **候选挑选**:首图/大改可一次出 2-4 张候选(`variants`),标「待选」不占版本链,用户在画布点「选用这张」才转正;候选比反复重抽更省时
+- **画质档位**:每次生成可指定 `quality`(auto/low/medium/high),细节要求高时用 high,不必改全局设置
+- **参数降级不连坐**:端点拒绝某个可选参数时只丢被拒的那一个(如只不支持 quality,分辨率与格式照旧保留),并在结果里如实回报「请求 vs 实际」尺寸,避免 4K/16:9 被静默降成 1024 方图
 - **版本链**:每张编辑图记录来源,可回溯任意版本继续修改;双击图片打开可缩放查看器;右键复制/另存为
 - **多会话并发**:会话间推理互不干扰,切走不中断,侧栏转圈标识运行中会话
 - **块式对话 UI**:思考过程(生成中展开/结束自动折叠)、工具调用卡片(默认折叠,展开看参数与结果)、轮次计时与结束摘要
@@ -66,8 +69,11 @@ Electron 44(主进程 = Agent 编排)· React 19 + TypeScript + Zustand + Tailwi
 npm install        # Electron 二进制走 .npmrc 中的 npmmirror 镜像
 npm run dev        # 开发模式(热更新;主进程改动需手动重启)
 npm run typecheck  # 类型检查
+npm run verify:image  # 生图参数降级逻辑自检(纯 node,不耗额度)
 npm run dist       # 打包 portable + NSIS 安装包(dist-release/)
 ```
+
+生图参数降级(`size` / `quality` / `output_format` 被端点单独拒绝时只丢那一个):`npm run verify:image` 校验"只拒 quality 时不连坐 size"这条核心行为。
 
 测试:`scripts/mock-server.mjs` 提供本地 mock 模型服务(OpenAI/Anthropic/Responses 三规范,带 `/__stats` 观测与 `/__mode` 故障注入),`scripts/verify-fix.cjs` 在 Electron 里直接跑真实主进程代码,校验图片内联压缩、请求体预算与失败留痕(**全程只用系统临时目录,不读写用户数据**):
 
