@@ -110,6 +110,11 @@ export async function readErrorMessage(res: Response): Promise<never> {
   } catch {
     // 非 JSON 响应体
   }
+  // 鉴权失败是最常见的"看起来没反应":把原因说清楚,用户才知道该去设置里改 Key
+  if (res.status === 401 || res.status === 403) {
+    const advice = 'API Key 可能已失效、被撤销或额度不足,请到设置里检查对应服务'
+    hint = hint ? `${hint}(${advice})` : `鉴权失败(HTTP ${res.status}):${advice}`
+  }
   throw new ApiError(hint || `HTTP ${res.status}`, res.status, body)
 }
 

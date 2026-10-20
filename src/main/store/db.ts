@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { ChatMessage, ImageAsset, ImageBrief, SessionSummary } from '@shared/types'
+import { appendLog } from './log'
 
 interface DBShape {
   sessions: SessionSummary[]
@@ -24,17 +25,44 @@ class DB {
 
   init(): void {
     this.file = path.join(app.getPath('userData'), 'app-data.json')
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<DBShape>
-      this.data = { ...emptyShape(), ...raw }
-    } catch {
-      this.data = emptyShape()
+    const candidates = [this.file, `${this.file}.bak`]
+    let sawExistingFile = false
+    for (const candidate of candidates) {
+      let raw: string
+      try {
+        raw = fs.readFileSync(candidate, 'utf8')
+      } catch {
+        continue // 不存在(首次启动)或不可读,试下一份
+      }
+      sawExistingFile = true
+      try {
+        const parsed = JSON.parse(raw) as Partial<DBShape>
+        this.data = { ...emptyShape(), ...parsed }
+        if (candidate !== this.file) {
+          appendLog(`主数据文件损坏,已从备份恢复:${candidate}`)
+        }
+        return
+      } catch (err) {
+        appendLog(`数据文件解析失败(${candidate}):${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+    this.data = emptyShape()
+    if (sawExistingFile) {
+      // 主文件与备份都读不出来:宁可空库启动,也要留痕(不再静默重置)
+      appendLog('主数据与备份均不可用,已以空数据启动')
     }
   }
 
   private save(): void {
     const tmp = `${this.file}.tmp`
+    const bak = `${this.file}.bak`
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8')
+    // 上一次的完好数据留作 .bak:主文件被写坏/截断时还能回退一代
+    try {
+      if (fs.existsSync(this.file)) fs.renameSync(this.file, bak)
+    } catch (err) {
+      appendLog(`数据备份失败(继续写主文件):${err instanceof Error ? err.message : String(err)}`)
+    }
     fs.renameSync(tmp, this.file)
   }
 

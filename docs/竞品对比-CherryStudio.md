@@ -245,3 +245,26 @@
 - 社区反馈：[#20014](https://github.com/CherryHQ/cherry-studio/issues/20014)、[#20808](https://github.com/CherryHQ/cherry-studio/issues/20808)、[#20028](https://github.com/CherryHQ/cherry-studio/issues/20028)、[#20282](https://github.com/CherryHQ/cherry-studio/issues/20282)
 
 > 待实测项：Cherry 绘画是否真支持蒙版局部重绘（文档称支持、v2.1.7 源码未见 inpaint/mask）；v2 是否已解决卡顿/内存问题；Midjourney 面板在 v2 的去留。
+
+---
+
+## 11. 实施进度（2026-10-21）
+
+**已完成 · 生图能力（P2 的前两项，优先于一切）**
+
+- 参数逐级降级：端点拒绝某个可选参数时只丢被拒的那个（`input_fidelity → output_format → quality → size`），并在结果里回报「请求 vs 实际」尺寸；修复「要 4K/16:9 却被静默降成 1024 方图」。实现：`src/main/providers/imageMeta.ts` + `images.ts`。
+- 候选生成：`generate_image` 支持 `variants`（2–4），候选标 `draft`/`batchId`，画布「✓ 选用这张」转正；`variants` 为 1 时行为不变。
+- 画质档位：`generate_image` / `edit_image` 支持 `quality` 覆盖（auto/low/medium/high）。
+- 提示词层：新增「出图质量自检」五条（主体/尺寸/构图/易崩细节/避免元素）与候选挑选流程；要求如实汇报降级，不合格不许硬夸。
+- 回归护栏：`npm run verify:image`（10 项）+ 集成测试（真起 mock 服务，验证「只拒 quality 时仍带 size」）。
+
+**已完成 · P0 止血**
+
+- 数据：`app-data.json` 落盘改为「先转 `.bak` 再写主文件」，启动时主文件解析失败自动回退 `.bak`，并把损坏/恢复/备份失败写进 `userData/logs/app.log`。
+- `ask_user` 增加 10 分钟超时（超时按「用户未回答」收尾），不再永久挂起。
+- 删除会话时先中止该会话运行中的 Agent，避免孤儿消息回写。
+- 单实例锁：第二个实例 0.3 秒内退出并聚焦已有窗口，杜绝两个进程同时写同一份数据。
+- 崩溃兜底：`uncaughtException` / `unhandledRejection` 落日志并在可用时弹窗告知日志位置，不再静默死掉。
+- 鉴权失败归因：401/403 的错误信息直接给出「API Key 可能已失效/额度不足 → 去设置检查」。
+
+**未做（按决策保留）**：i18n 框架、跨平台打包、付费层、MCP 市场、API 网关、遥测；「中断后恢复上次会话」的用户可见提示需要 UI 设计，暂缓。

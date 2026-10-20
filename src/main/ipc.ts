@@ -60,6 +60,10 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(IPC.SESSIONS_REMOVE, (_e, id: string) => {
+    // 先中止该会话正在跑的 Agent,再删数据 —— 否则运行中的循环会继续 addMessage,
+    // 把消息写进已删除的会话(孤儿消息),甚至回写刚被清理掉的资产目录
+    cancelRun(id)
+    cancelSessionQuestions(id)
     const projectPath = db.getSession(id)?.projectPath
     db.deleteSession(id)
     removeSessionAssets(id, projectPath)
