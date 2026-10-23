@@ -4,6 +4,7 @@ import * as electron from 'electron'
 import fs from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { IPC } from '@shared/ipc'
 import { registerIpc } from './ipc'
 import { getDb } from './store/db'
 import { getSettings } from './store/settings'
@@ -38,8 +39,13 @@ function createWindow(): void {
     minWidth: 1100,
     minHeight: 700,
     show: false,
+    // 无系统标题栏:顶部那条浅色标题栏跟深色界面始终对不上,直接不要它。
+    // 最小化/最大化/关闭由渲染进程自绘(WindowControls);thickFrame 保持默认,
+    // 所以贴边缩放、Win+方向、贴靠布局与系统阴影都还在。
+    frame: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0f1117',
+    // 与左侧栏同色,窗口出现前不会有浅色闪一下
+    backgroundColor: '#0d0f13',
     title: '说画 SayDraw',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -51,6 +57,15 @@ function createWindow(): void {
   })
 
   win.on('ready-to-show', () => win.show())
+
+  // 最大化/还原状态同步给渲染进程,好换按钮图标(双击拖拽区、Win+↑、贴靠都会走到这里)
+  const sendWindowState = (): void => {
+    if (win.isDestroyed()) return
+    win.webContents.send(IPC.WINDOW_STATE, { maximized: win.isMaximized() })
+  }
+  win.on('maximize', sendWindowState)
+  win.on('unmaximize', sendWindowState)
+  win.webContents.on('did-finish-load', sendWindowState)
 
   const devUrl = process.env.ELECTRON_RENDERER_URL
   if (devUrl) {

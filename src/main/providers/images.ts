@@ -33,6 +33,53 @@ export function parseExplicitSize(size?: string): string | null {
   return `${m[1]}x${m[2]}`
 }
 
+/**
+ * 常见生图端点(含 GPT-Image 系)的长边上限。
+ * 2026-10-21 实测 cf.api.fan:传 3072x4096 直接被拒 ——
+ * "invalid size 3072x4096. The longest edge must be less than or equal to 3840"。
+ * 与其把请求发出去吃一个 400,不如本地按比例收敛,并如实告诉用户"被收敛成多少"。
+ */
+export const MAX_IMAGE_EDGE = 3840
+
+/**
+ * 尺寸约束(2026-10-22 实测 cf.api.fan):
+ *   - 长边 ≤ 3840
+ *   - 宽高都必须是 16 的倍数(传 1000x640 被拒:Width and height must both be divisible by 16)
+ * 与其把请求发出去吃 400,不如本地收敛,并如实告知"原请求被改成了多少"。
+ */
+export const IMAGE_SIZE_MULTIPLE = 16
+
+/** 端点最小像素量(低于它直接 400:Requested resolution is below the current minimum pixel budget) */
+export const MIN_IMAGE_PIXELS = 1_048_576
+
+/** 把尺寸收敛到:长边 ≤ MAX_IMAGE_EDGE、宽高为 16 的倍数、像素量 ≥ MIN_IMAGE_PIXELS(保持比例) */
+export function clampImageSize(size: string): { size: string; clamped: boolean; from?: string } {
+  const m = /^(\d{2,5})\s*[x×]\s*(\d{2,5})$/i.exec(size.trim())
+  if (!m) return { size, clamped: false }
+  const w = Number(m[1])
+  const h = Number(m[2])
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return { size, clamped: false }
+  const k = Math.min(1, MAX_IMAGE_EDGE / Math.max(w, h))
+  const snap = (v: number): number =>
+    Math.max(64, Math.round((v * k) / IMAGE_SIZE_MULTIPLE) * IMAGE_SIZE_MULTIPLE)
+  let nw = snap(w)
+  let nh = snap(h)
+  if (nw * nh < MIN_IMAGE_PIXELS) {
+    const f = Math.sqrt(MIN_IMAGE_PIXELS / (nw * nh))
+    const up = (v: number): number =>
+      Math.min(MAX_IMAGE_EDGE, Math.max(64, Math.ceil((v * f) / IMAGE_SIZE_MULTIPLE) * IMAGE_SIZE_MULTIPLE))
+    nw = up(nw)
+    nh = up(nh)
+    while (nw * nh < MIN_IMAGE_PIXELS && (nw < MAX_IMAGE_EDGE || nh < MAX_IMAGE_EDGE)) {
+      if (nw <= nh && nw < MAX_IMAGE_EDGE) nw += IMAGE_SIZE_MULTIPLE
+      else if (nh < MAX_IMAGE_EDGE) nh += IMAGE_SIZE_MULTIPLE
+      else break
+    }
+  }
+  if (nw === w && nh === h) return { size: `${w}x${h}`, clamped: false }
+  return { size: `${nw}x${nh}`, clamped: true, from: `${w}x${h}` }
+}
+
 interface RawImage {
   b64_json?: string
   url?: string
@@ -42,8 +89,10 @@ export interface GeneratedImages {
   buffers: Buffer[]
   /** 因端点不支持而被丢弃的可选参数(需如实告知用户"画质/尺寸被降级") */
   dropped: OptionalImageParam[]
-  /** 请求的分辨率 */
+  /** 请求的分辨率(已按端点上限收敛) */
   requestedSize?: string
+  /** 原请求尺寸(被本地收敛时才有值) */
+  clampedFrom?: string
   /** 接口实际返回的首张分辨率 */
   actualSize?: string
 }
@@ -121,7 +170,9 @@ export async function generateImages(opts: {
   if (!profile.apiKey) throw new ApiError('生图服务未配置 API Key')
 
   const url = joinUrl(profile.baseUrl, profile.genPath || '/images/generations')
-  const requested = parseExplicitSize(size) ?? ratioToSize(ratio)
+  const rawRequested = parseExplicitSize(size) ?? ratioToSize(ratio)
+  const fit = rawRequested ? clampImageSize(rawRequested) : { size: '', clamped: false }
+  const requested = rawRequested ? fit.size : undefined
   const quality = (opts.quality ?? '').trim() || profile.quality
 
   const optional: OptionalImageParam[] = []
@@ -166,7 +217,9 @@ export async function editImage(opts: {
   if (!images.length) throw new ApiError('缺少输入图片')
 
   const url = joinUrl(profile.baseUrl, profile.editPath || '/images/edits')
-  const requested = parseExplicitSize(size) ?? ratioToSize(ratio)
+  const rawRequested = parseExplicitSize(size) ?? ratioToSize(ratio)
+  const fit = rawRequested ? clampImageSize(rawRequested) : { size: '', clamped: false }
+  const requested = rawRequested ? fit.size : undefined
   const quality = (opts.quality ?? '').trim() || profile.quality
 
   const optional: OptionalImageParam[] = []
@@ -213,6 +266,7 @@ export async function editImage(opts: {
     buffers,
     dropped,
     requestedSize: requested,
+    clampedFrom: fit.clamped ? fit.from : undefined,
     actualSize: sizeText(probeImageSize(buffers[0], guessMime(buffers[0])))
   }
 }

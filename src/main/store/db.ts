@@ -76,14 +76,15 @@ class DB {
     return this.data.sessions.find((s) => s.id === id)
   }
 
-  createSession(title = '新会话'): SessionSummary {
+  createSession(title = '新会话', projectPath?: string): SessionSummary {
     const now = Date.now()
     const s: SessionSummary = {
       id: randomUUID(),
       title,
       createdAt: now,
       updatedAt: now,
-      messageCount: 0
+      messageCount: 0,
+      projectPath
     }
     this.data.sessions.push(s)
     this.save()

@@ -4,7 +4,7 @@ import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import type { AssetKind, ImageAsset } from '@shared/types'
+import type { AssetKind, ImageAsset, ImageMeta } from '@shared/types'
 import { probeImageSize } from '../providers/imageMeta'
 import { getDb } from './db'
 
@@ -63,6 +63,7 @@ function persistBuffer(opts: {
   label?: string
   draft?: boolean
   batchId?: string
+  meta?: ImageMeta
 }): ImageAsset {
   const { sessionId, buffer, mime } = opts
   const dir = sessionAssetsDir(sessionId)
@@ -84,6 +85,7 @@ function persistBuffer(opts: {
     width,
     height,
     prompt: opts.prompt,
+    meta: opts.meta,
     draft: opts.draft,
     batchId: opts.batchId,
     createdAt: Date.now()
@@ -112,9 +114,12 @@ export function saveBufferAsset(opts: {
   mime: string
   kind: AssetKind
   parentId?: string
+  baseAssetId?: string
+  label?: string
   prompt?: string
   draft?: boolean
   batchId?: string
+  meta?: ImageMeta
 }): ImageAsset {
   return persistBuffer(opts)
 }
